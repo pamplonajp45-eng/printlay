@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Heart } from "lucide-react";
 import Header from "./components/Header";
 import UploadZone from "./components/UploadZone";
 import PhotoThumbGrid from "./components/PhotoThumbGrid";
@@ -10,6 +9,7 @@ import SheetPreview from "./components/SheetPreview";
 import ExportBar from "./components/ExportBar";
 import CropModal from "./components/CropModal";
 import GuideModal from "./components/GuideModal";
+import { Heart } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
 import { cropToCanvas, loadImage } from "./lib/cropEngine";
@@ -20,8 +20,8 @@ export default function App() {
   const [photos, setPhotos] = useState([]);
   const [photoPresetId, setPhotoPresetId] = useState("polaroidClassic");
   const [sheetPresetId, setSheetPresetId] = useState("a4");
-  const [photoOrientation, setPhotoOrientation] = useState("portrait"); // "portrait" | "landscape"
-  const [sheetOrientation, setSheetOrientation] = useState("portrait"); // "portrait" | "landscape"
+  const [photoOrientation, setPhotoOrientation] = useState("portrait");
+  const [sheetOrientation, setSheetOrientation] = useState("portrait");
   const [customPhotoSize, setCustomPhotoSize] = useState({ wIn: 3.0, hIn: 4.0, unit: "in" });
   
   const [showCutGuides, setShowCutGuides] = useState(true);
@@ -226,6 +226,12 @@ export default function App() {
     }
   };
 
+  const handleUpdatePhotoCrop = useCallback((photoId, newCropSettings) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === photoId ? { ...p, cropSettings: newCropSettings } : p))
+    );
+  }, []);
+
   // Crop Modal Handlers
   const handleSaveCrop = (newSettings) => {
     if (!activeCropPhoto) return;
@@ -306,13 +312,15 @@ export default function App() {
             onToggleSequenceLabels={setShowSequenceLabels}
           />
 
-          {/* Interactive Sheet Preview */}
+          {/* Interactive Sheet Preview with Direct Drag-to-Adjust */}
           <SheetPreview
             sheets={sheets}
             photoPreset={activePhotoPreset}
             sheetPreset={activeSheetPreset}
             gridInfo={gridInfo}
             photoCount={photos.length}
+            onUpdatePhotoCrop={handleUpdatePhotoCrop}
+            onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
           />
 
         </div>

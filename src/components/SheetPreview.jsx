@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Layers, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Move, Settings, Layers, Hand } from "lucide-react";
 
 export default function SheetPreview({
   sheets,
@@ -7,9 +7,12 @@ export default function SheetPreview({
   sheetPreset,
   gridInfo,
   photoCount,
+  onUpdatePhotoCrop,
+  onOpenCropModal,
 }) {
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const [previewZoom, setPreviewZoom] = useState(1.0);
+  const [draggingCell, setDraggingCell] = useState(null);
   const canvasContainerRef = useRef(null);
 
   useEffect(() => {
@@ -17,6 +20,37 @@ export default function SheetPreview({
       setActiveSheetIndex(sheets.length - 1);
     }
   }, [sheets]);
+
+  // Global mousemove and mouseup listeners for drag-to-adjust photo position
+  useEffect(() => {
+    if (!draggingCell) return;
+
+    const handleMouseMove = (e) => {
+      const dx = (e.clientX - draggingCell.startX) * 0.0025;
+      const dy = (e.clientY - draggingCell.startY) * 0.0025;
+
+      const currentSettings = draggingCell.photoItem?.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 };
+      const newOffsetX = Math.max(-0.5, Math.min(0.5, draggingCell.initialOffsetX - dx));
+      const newOffsetY = Math.max(-0.5, Math.min(0.5, draggingCell.initialOffsetY - dy));
+
+      onUpdatePhotoCrop(draggingCell.photoId, {
+        ...currentSettings,
+        offsetX: newOffsetX,
+        offsetY: newOffsetY,
+      });
+    };
+
+    const handleMouseUp = () => {
+      setDraggingCell(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [draggingCell, onUpdatePhotoCrop]);
 
   if (!sheets || sheets.length === 0) {
     return (
@@ -48,6 +82,7 @@ export default function SheetPreview({
   }
 
   const currentSheet = sheets[activeSheetIndex];
+  const { sheetWpx, sheetHpx, layoutCells = [] } = currentSheet;
 
   return (
     <div className="glass-card" style={{ padding: "20px", marginBottom: "24px" }}>
@@ -64,7 +99,7 @@ export default function SheetPreview({
       >
         <div>
           <h3 className="heading" style={{ margin: 0, fontSize: 18, color: "#3d3856", display: "flex", alignItems: "center", gap: 8 }}>
-            Sheet Preview
+            Interactive Sheet Preview
             <span
               style={{
                 fontSize: 12,
@@ -78,8 +113,8 @@ export default function SheetPreview({
               Page {activeSheetIndex + 1} of {sheets.length}
             </span>
           </h3>
-          <p style={{ margin: "2px 0 0", fontSize: 13, color: "#7c7893" }}>
-            Grid: {gridInfo.cols} cols × {gridInfo.rows} rows ({gridInfo.perSheet} photos/sheet capacity)
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: "#7c7893", display: "flex", alignItems: "center", gap: 5 }}>
+            <Hand size={13} color="#8f7fe0" /> Drag any photo directly on the sheet to adjust position/center!
           </p>
         </div>
 
@@ -150,6 +185,7 @@ export default function SheetPreview({
       >
         <div
           style={{
+            position: "relative",
             transform: `scale(${previewZoom})`,
             transformOrigin: "center center",
             transition: "transform 200ms ease",
@@ -157,15 +193,94 @@ export default function SheetPreview({
             borderRadius: "4px",
             background: "#ffffff",
             maxWidth: "100%",
+            userSelect: "none",
           }}
         >
+          {/* Rendered sheet canvas */}
           <RenderedCanvasHost canvas={currentSheet.canvas} />
+
+          {/* Interactive Cell Drag & Click Overlays */}
+          {layoutCells.map((cell) => {
+            const leftPct = (cell.x / sheetWpx) * 100;
+            const topPct = (cell.y / sheetHpx) * 100;
+            const widthPct = (cell.w / sheetWpx) * 100;
+            const heightPct = (cell.h / sheetHpx) * 100;
+
+            const isDraggingThis = draggingCell?.photoId === cell.photoId;
+
+            return (
+              <div
+                key={`${cell.photoId}-${cell.index}`}
+                className="sheet-preview-cell-overlay"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setDraggingCell({
+                    photoId: cell.photoId,
+                    photoItem: cell.photoItem,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    initialOffsetX: cell.photoItem?.cropSettings?.offsetX || 0,
+                    initialOffsetY: cell.photoItem?.cropSettings?.offsetY || 0,
+                  });
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  if (cell.photoItem) onOpenCropModal(cell.photoItem);
+                }}
+                style={{
+                  position: "absolute",
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  width: `${widthPct}%`,
+                  height: `${heightPct}%`,
+                  cursor: isDraggingThis ? "grabbing" : "grab",
+                  border: isDraggingThis
+                    ? "2px solid #8f7fe0"
+                    : "1px dashed transparent",
+                  borderRadius: "2px",
+                  boxSizing: "border-box",
+                  transition: "border-color 150ms ease, background 150ms ease",
+                }}
+                title="Click and drag to pan photo. Double-click to open full editor."
+              >
+                {/* Floating edit button on hover */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (cell.photoItem) onOpenCropModal(cell.photoItem);
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    background: "rgba(0,0,0,0.65)",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: 22,
+                    height: 22,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                    opacity: 0,
+                    transition: "opacity 150ms ease",
+                  }}
+                  className="cell-gear-btn"
+                  title="Open crop editor"
+                >
+                  <Settings size={12} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 12, color: "#7c7893" }}>
         <span>Sheet format: <strong>{sheetPreset.name}</strong> ({sheetPreset.wIn}″ × {sheetPreset.hIn}″)</span>
-        <span>Print at <strong>100% scale (no fit-to-page)</strong> for exact physical dimensions</span>
+        <span>Drag photos inside preview to center • Double click for full editor</span>
       </div>
     </div>
   );
@@ -178,13 +293,13 @@ function RenderedCanvasHost({ canvas }) {
   useEffect(() => {
     if (containerRef.current && canvas) {
       containerRef.current.innerHTML = "";
-      // Clone or style canvas for responsive preview
       const previewImg = document.createElement("img");
       previewImg.src = canvas.toDataURL("image/png");
       previewImg.style.maxHeight = "520px";
       previewImg.style.maxWidth = "100%";
       previewImg.style.height = "auto";
       previewImg.style.display = "block";
+      previewImg.style.pointerEvents = "none"; // allow click events through to overlay
       containerRef.current.appendChild(previewImg);
     }
   }, [canvas]);

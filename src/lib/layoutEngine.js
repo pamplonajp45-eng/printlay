@@ -49,9 +49,9 @@ function presetHeightIn(preset) {
  * @param {Array<HTMLCanvasElement>} croppedCanvases - Array of cropped photo canvases
  * @param {Object} photoPreset
  * @param {Object} sheetPreset
- * @param {Array} photoMetadata - [{ id, name }]
+ * @param {Array} photoMetadata - [{ id, name, cropSettings }]
  * @param {Object} options - { dpi, marginIn, gutterIn, showCutGuides, cutGuideStyle, showSequenceLabels, bgColor }
- * @returns {Array<{ canvas: HTMLCanvasElement, sheetIndex: number, totalSheets: number }>}
+ * @returns {Array<{ canvas: HTMLCanvasElement, sheetIndex: number, totalSheets: number, layoutCells: Array }>}
  */
 export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset, photoMetadata = [], options = {}) {
   const {
@@ -111,6 +111,7 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
 
     const sheetSlice = croppedCanvases.slice(s * perSheet, (s + 1) * perSheet);
     const metaSlice = photoMetadata.slice(s * perSheet, (s + 1) * perSheet);
+    const layoutCells = [];
 
     sheetSlice.forEach((croppedCanvas, i) => {
       const col = i % cols;
@@ -121,6 +122,19 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
       // Draw photo canvas onto sheet
       ctx.drawImage(croppedCanvas, x, y);
 
+      // Store layout cell bounds for interactive drag & click handlers
+      layoutCells.push({
+        photoId: metaSlice[i]?.id,
+        photoItem: metaSlice[i],
+        index: s * perSheet + i,
+        col,
+        row,
+        x,
+        y,
+        w: photoWpx,
+        h: photoHpx,
+      });
+
       // Draw cut guides if enabled
       if (showCutGuides && cutGuideStyle !== "none") {
         drawCutGuides(ctx, x, y, photoWpx, photoHpx, cutGuideStyle, dpi);
@@ -130,7 +144,7 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
       if (showSequenceLabels) {
         const itemNumber = s * perSheet + i + 1;
         const photoName = metaSlice[i]?.name || `#${itemNumber}`;
-        drawSequenceLabel(ctx, x, y, photoWpx, photoHpx, photoName, dpi);
+        drawSequenceLabel(ctx, x, y, photoName, dpi);
       }
     });
 
@@ -140,7 +154,10 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
       totalSheets,
       cols,
       rows,
+      sheetWpx,
+      sheetHpx,
       photosCount: sheetSlice.length,
+      layoutCells,
     });
   }
 
