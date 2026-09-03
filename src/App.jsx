@@ -26,8 +26,8 @@ export default function App() {
   
   const [showCutGuides, setShowCutGuides] = useState(true);
   const [cutGuideStyle, setCutGuideStyle] = useState("dashed");
-  const [marginIn, setMarginIn] = useState(0.3);
-  const [gutterIn, setGutterIn] = useState(0.15);
+  const [marginIn, setMarginIn] = useState(0.25);
+  const [gutterIn, setGutterIn] = useState(0.1);
   const [dpi, setDpi] = useState(300);
   const [frameBgColor, setFrameBgColor] = useState("#ffffff");
   const [showSequenceLabels, setShowSequenceLabels] = useState(false);

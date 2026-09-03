@@ -25,8 +25,8 @@ export const PHOTO_PRESETS = [
   },
   {
     id: "polaroidMini",
-    name: "Polaroid Mini",
-    description: "2 × 3 in photo strip / mini print style",
+    name: "Polaroid Mini (2×3)",
+    description: "2 × 3 in (5.1 × 7.6 cm) mini print (10 per A4 sheet in 2×5 grid)",
     wIn: 2.0,
     hIn: 3.0,
     wCm: 5.1,
@@ -38,7 +38,25 @@ export const PHOTO_PRESETS = [
       leftRatio: 0.06,
       topRatio: 0.06,
       rightRatio: 0.06,
-      bottomRatio: 0.16,
+      bottomRatio: 0.18,
+    }
+  },
+  {
+    id: "instaxMini",
+    name: "Instax Mini (54×86mm)",
+    description: "54 × 86 mm (2.1 × 3.4 in) standard film spec (10 per A4 sheet in 2×5 grid)",
+    wIn: 2.1,
+    hIn: 3.35,
+    wCm: 5.4,
+    hCm: 8.6,
+    isPolaroid: true,
+    polaroidStyle: "mini",
+    aspectRatio: 2.1 / 3.35,
+    imageArea: {
+      leftRatio: 0.074,
+      topRatio: 0.058,
+      rightRatio: 0.074,
+      bottomRatio: 0.22,
     }
   },
   {
