@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Layers, Crop } from "lucide-react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Layers } from "lucide-react";
 
 export default function SheetPreview({
   sheets,
@@ -47,9 +47,9 @@ export default function SheetPreview({
       }
     };
 
-    const handleMouseUp = (e) => {
+    const handleMouseUp = () => {
       if (draggingCell && !draggingCell.hasDragged) {
-        // If mouse didn't drag, treat as click to open Crop & Pan Modal!
+        // Clicked photo cell -> open Crop & Pan Modal editor
         if (draggingCell.photoItem) {
           onOpenCropModal(draggingCell.photoItem);
         }
@@ -127,7 +127,7 @@ export default function SheetPreview({
             </span>
           </h3>
           <p style={{ margin: "2px 0 0", fontSize: 13, color: "#7c7893" }}>
-            Click any photo cell or the <strong>Crop</strong> button to open editor • Drag to pan
+            Click any photo cell to open crop editor • Drag photo to pan position
           </p>
         </div>
 
@@ -213,7 +213,7 @@ export default function SheetPreview({
           {/* Rendered sheet canvas */}
           <RenderedCanvasHost canvas={currentSheet.canvas} />
 
-          {/* Interactive Cell Overlays */}
+          {/* Clean Interactive Cell Overlays */}
           {layoutCells.map((cell) => {
             const leftPct = (cell.x / sheetWpx) * 100;
             const topPct = (cell.y / sheetHpx) * 100;
@@ -255,42 +255,7 @@ export default function SheetPreview({
                   transition: "border-color 150ms ease, background 150ms ease",
                 }}
                 title="Click to open crop editor, or drag to pan"
-              >
-                {/* Always-Visible / Hover Crop Button */}
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.stopPropagation(); // prevent drag start when clicking button
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (cell.photoItem) onOpenCropModal(cell.photoItem);
-                  }}
-                  style={{
-                    position: "absolute",
-                    top: 6,
-                    right: 6,
-                    background: "rgba(143, 127, 224, 0.92)",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "999px",
-                    padding: "4px 10px",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    cursor: "pointer",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-                    zIndex: 30,
-                    pointerEvents: "auto",
-                  }}
-                  className="cell-gear-btn"
-                  title="Open Crop & Pan Modal Editor"
-                >
-                  <Crop size={12} /> Crop & Pan
-                </button>
-              </div>
+              />
             );
           })}
         </div>
@@ -298,7 +263,7 @@ export default function SheetPreview({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 12, color: "#7c7893" }}>
         <span>Sheet format: <strong>{sheetPreset.name}</strong> ({sheetPreset.wIn}″ × {sheetPreset.hIn}″)</span>
-        <span>Click <strong>Crop & Pan</strong> button or any photo cell to open editor</span>
+        <span>Click any photo cell to open crop editor • Drag photo to pan position</span>
       </div>
     </div>
   );
