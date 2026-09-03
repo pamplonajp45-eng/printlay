@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Heart } from "lucide-react";
 import Header from "./components/Header";
 import UploadZone from "./components/UploadZone";
 import PhotoThumbGrid from "./components/PhotoThumbGrid";
@@ -324,6 +325,29 @@ export default function App() {
           onGenerateLayout={handleGenerateLayout}
           isGenerating={isGenerating}
         />
+
+        {/* Footer credit */}
+        <footer
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            flexWrap: "wrap",
+            marginTop: "32px",
+            padding: "16px 8px",
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#7c7893",
+            textAlign: "center",
+          }}
+        >
+          <span className="footer-brand">Jpdev&reg;</span>
+          <Heart size={14} color="#ff6b8a" fill="#ff6b8a" />
+          <span style={{ color: "#b0acbe", fontWeight: 500 }}>Built with love by</span>
+          <span className="footer-highlight">jpdev</span>
+          <span style={{ color: "#b0acbe", fontWeight: 500 }}>for aesthetic finds</span>
+        </footer>
 
       </div>
 

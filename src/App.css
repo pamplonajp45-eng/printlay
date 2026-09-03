@@ -1,3 +1,17 @@
+/* Footer credit */
+.footer-brand {
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
+  font-weight: 800;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.footer-highlight {
+  font-weight: 800;
+  color: var(--text-dark);
+}
 .counter {
   font-size: 16px;
   padding: 5px 10px;
