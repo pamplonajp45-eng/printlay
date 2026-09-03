@@ -21,28 +21,39 @@ export default function SheetPreview({
     }
   }, [sheets]);
 
-  // Global mousemove and mouseup listeners for drag-to-adjust photo position
+  // Global mousemove and mouseup listeners for drag & click handling
   useEffect(() => {
     if (!draggingCell) return;
 
     const handleMouseMove = (e) => {
-      e.preventDefault();
-      const dx = (e.clientX - draggingCell.startX) * 0.0025;
-      const dy = (e.clientY - draggingCell.startY) * 0.0025;
+      const dist = Math.hypot(e.clientX - draggingCell.startX, e.clientY - draggingCell.startY);
+      if (dist > 4) {
+        draggingCell.hasDragged = true;
+      }
 
-      const currentSettings = draggingCell.photoItem?.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 };
-      const newOffsetX = Math.max(-0.5, Math.min(0.5, draggingCell.initialOffsetX - dx));
-      const newOffsetY = Math.max(-0.5, Math.min(0.5, draggingCell.initialOffsetY - dy));
+      if (draggingCell.hasDragged) {
+        const dx = (e.clientX - draggingCell.startX) * 0.0025;
+        const dy = (e.clientY - draggingCell.startY) * 0.0025;
 
-      onUpdatePhotoCrop(draggingCell.photoId, {
-        ...currentSettings,
-        offsetX: newOffsetX,
-        offsetY: newOffsetY,
-      });
+        const currentSettings = draggingCell.photoItem?.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 };
+        const newOffsetX = Math.max(-0.5, Math.min(0.5, draggingCell.initialOffsetX - dx));
+        const newOffsetY = Math.max(-0.5, Math.min(0.5, draggingCell.initialOffsetY - dy));
+
+        onUpdatePhotoCrop(draggingCell.photoId, {
+          ...currentSettings,
+          offsetX: newOffsetX,
+          offsetY: newOffsetY,
+        });
+      }
     };
 
     const handleMouseUp = (e) => {
-      e.preventDefault();
+      if (draggingCell && !draggingCell.hasDragged) {
+        // If mouse didn't drag, treat as click to open Crop & Pan Modal!
+        if (draggingCell.photoItem) {
+          onOpenCropModal(draggingCell.photoItem);
+        }
+      }
       setDraggingCell(null);
     };
 
@@ -52,7 +63,7 @@ export default function SheetPreview({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [draggingCell, onUpdatePhotoCrop]);
+  }, [draggingCell, onUpdatePhotoCrop, onOpenCropModal]);
 
   if (!sheets || sheets.length === 0) {
     return (
@@ -116,7 +127,7 @@ export default function SheetPreview({
             </span>
           </h3>
           <p style={{ margin: "2px 0 0", fontSize: 13, color: "#7c7893" }}>
-            Click photo to adjust crop/pan • Hover cell to edit
+            Click any photo cell or the <strong>Crop</strong> button to open editor • Drag to pan
           </p>
         </div>
 
@@ -225,11 +236,8 @@ export default function SheetPreview({
                     startY: e.clientY,
                     initialOffsetX: cell.photoItem?.cropSettings?.offsetX || 0,
                     initialOffsetY: cell.photoItem?.cropSettings?.offsetY || 0,
+                    hasDragged: false,
                   });
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (cell.photoItem) onOpenCropModal(cell.photoItem);
                 }}
                 style={{
                   position: "absolute",
@@ -246,32 +254,42 @@ export default function SheetPreview({
                   zIndex: 20,
                   transition: "border-color 150ms ease, background 150ms ease",
                 }}
-                title="Click or drag to adjust crop & pan for this photo"
+                title="Click to open crop editor, or drag to pan"
               >
-                {/* Floating edit button on hover */}
-                <div
+                {/* Always-Visible / Hover Crop Button */}
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.stopPropagation(); // prevent drag start when clicking button
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (cell.photoItem) onOpenCropModal(cell.photoItem);
+                  }}
                   style={{
                     position: "absolute",
-                    top: 4,
-                    right: 4,
-                    background: "rgba(143, 127, 224, 0.9)",
+                    top: 6,
+                    right: 6,
+                    background: "rgba(143, 127, 224, 0.92)",
                     color: "#ffffff",
+                    border: "none",
                     borderRadius: "999px",
-                    padding: "3px 8px",
-                    fontSize: 10,
+                    padding: "4px 10px",
+                    fontSize: 11,
                     fontWeight: 700,
                     display: "flex",
                     alignItems: "center",
-                    gap: 3,
-                    opacity: 0,
-                    transition: "opacity 150ms ease",
-                    pointerEvents: "none",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                    gap: 4,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                    zIndex: 30,
+                    pointerEvents: "auto",
                   }}
                   className="cell-gear-btn"
+                  title="Open Crop & Pan Modal Editor"
                 >
-                  <Crop size={10} /> Edit Crop
-                </div>
+                  <Crop size={12} /> Crop & Pan
+                </button>
               </div>
             );
           })}
@@ -280,7 +298,7 @@ export default function SheetPreview({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 12, color: "#7c7893" }}>
         <span>Sheet format: <strong>{sheetPreset.name}</strong> ({sheetPreset.wIn}″ × {sheetPreset.hIn}″)</span>
-        <span>Click any photo to open crop editor • Drag photo to pan position</span>
+        <span>Click <strong>Crop & Pan</strong> button or any photo cell to open editor</span>
       </div>
     </div>
   );
