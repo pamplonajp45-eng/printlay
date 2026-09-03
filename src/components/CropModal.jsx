@@ -85,15 +85,15 @@ export default function CropModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="glass-card modal-content" style={{ width: "90%", maxWidth: "560px", padding: "24px" }}>
+      <div className="glass-card modal-content" style={{ width: "92%", maxWidth: "800px", padding: "28px" }}>
         
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <div>
-            <h2 className="heading" style={{ margin: 0, fontSize: 20, color: "#3d3856" }}>
+            <h2 className="heading" style={{ margin: 0, fontSize: 22, color: "#3d3856" }}>
               Adjust Photo Crop & Pan
             </h2>
-            <p style={{ margin: 0, fontSize: 13, color: "#7c7893" }}>
+            <p style={{ margin: 0, fontSize: 14, color: "#7c7893" }}>
               Target preset: <strong>{photoPreset.name}</strong> ({photoPreset.wIn} × {photoPreset.hIn} in)
             </p>
           </div>
@@ -101,7 +101,7 @@ export default function CropModal({
             onClick={onClose}
             style={{ border: "none", background: "none", cursor: "pointer", color: "#7c7893" }}
           >
-            <X size={20} />
+            <X size={24} />
           </button>
         </div>
 
@@ -121,13 +121,14 @@ export default function CropModal({
             marginBottom: "20px",
             cursor: isDragging ? "grabbing" : "grab",
             userSelect: "none",
-            minHeight: "260px",
+            minHeight: "420px",
+            maxHeight: "55vh",
           }}
         >
           <canvas
             ref={previewCanvasRef}
             style={{
-              maxHeight: "240px",
+              maxHeight: "400px",
               maxWidth: "100%",
               borderRadius: "8px",
               boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
