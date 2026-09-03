@@ -28,6 +28,17 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Disable native browser image ghosting */
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Heading Typography */
 h1, h2, h3, h4, .heading {
   font-family: 'Baloo 2', 'Nunito', sans-serif;
@@ -184,8 +195,8 @@ h1, h2, h3, h4, .heading {
 
 /* Interactive Sheet Preview Cell Overlay */
 .sheet-preview-cell-overlay:hover {
-  border-color: rgba(143, 127, 224, 0.7) !important;
-  background: rgba(143, 127, 224, 0.08);
+  border-color: #8f7fe0 !important;
+  background: rgba(143, 127, 224, 0.12) !important;
 }
 
 .sheet-preview-cell-overlay:hover .cell-gear-btn {

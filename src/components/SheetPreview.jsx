@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Move, Settings, Layers, Hand } from "lucide-react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Layers, Crop } from "lucide-react";
 
 export default function SheetPreview({
   sheets,
@@ -26,6 +26,7 @@ export default function SheetPreview({
     if (!draggingCell) return;
 
     const handleMouseMove = (e) => {
+      e.preventDefault();
       const dx = (e.clientX - draggingCell.startX) * 0.0025;
       const dy = (e.clientY - draggingCell.startY) * 0.0025;
 
@@ -40,7 +41,8 @@ export default function SheetPreview({
       });
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e) => {
+      e.preventDefault();
       setDraggingCell(null);
     };
 
@@ -113,8 +115,8 @@ export default function SheetPreview({
               Page {activeSheetIndex + 1} of {sheets.length}
             </span>
           </h3>
-          <p style={{ margin: "2px 0 0", fontSize: 13, color: "#7c7893", display: "flex", alignItems: "center", gap: 5 }}>
-            <Hand size={13} color="#8f7fe0" /> Drag any photo directly on the sheet to adjust position/center!
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: "#7c7893" }}>
+            Click photo to adjust crop/pan • Hover cell to edit
           </p>
         </div>
 
@@ -194,12 +196,13 @@ export default function SheetPreview({
             background: "#ffffff",
             maxWidth: "100%",
             userSelect: "none",
+            WebkitUserSelect: "none",
           }}
         >
           {/* Rendered sheet canvas */}
           <RenderedCanvasHost canvas={currentSheet.canvas} />
 
-          {/* Interactive Cell Drag & Click Overlays */}
+          {/* Interactive Cell Overlays */}
           {layoutCells.map((cell) => {
             const leftPct = (cell.x / sheetWpx) * 100;
             const topPct = (cell.y / sheetHpx) * 100;
@@ -213,6 +216,7 @@ export default function SheetPreview({
                 key={`${cell.photoId}-${cell.index}`}
                 className="sheet-preview-cell-overlay"
                 onMouseDown={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   setDraggingCell({
                     photoId: cell.photoId,
@@ -223,7 +227,7 @@ export default function SheetPreview({
                     initialOffsetY: cell.photoItem?.cropSettings?.offsetY || 0,
                   });
                 }}
-                onDoubleClick={(e) => {
+                onClick={(e) => {
                   e.stopPropagation();
                   if (cell.photoItem) onOpenCropModal(cell.photoItem);
                 }}
@@ -233,45 +237,41 @@ export default function SheetPreview({
                   top: `${topPct}%`,
                   width: `${widthPct}%`,
                   height: `${heightPct}%`,
-                  cursor: isDraggingThis ? "grabbing" : "grab",
+                  cursor: isDraggingThis ? "grabbing" : "pointer",
                   border: isDraggingThis
                     ? "2px solid #8f7fe0"
                     : "1px dashed transparent",
                   borderRadius: "2px",
                   boxSizing: "border-box",
+                  zIndex: 20,
                   transition: "border-color 150ms ease, background 150ms ease",
                 }}
-                title="Click and drag to pan photo. Double-click to open full editor."
+                title="Click or drag to adjust crop & pan for this photo"
               >
                 {/* Floating edit button on hover */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (cell.photoItem) onOpenCropModal(cell.photoItem);
-                  }}
+                <div
                   style={{
                     position: "absolute",
                     top: 4,
                     right: 4,
-                    background: "rgba(0,0,0,0.65)",
-                    border: "none",
-                    borderRadius: "50%",
-                    width: 22,
-                    height: 22,
+                    background: "rgba(143, 127, 224, 0.9)",
+                    color: "#ffffff",
+                    borderRadius: "999px",
+                    padding: "3px 8px",
+                    fontSize: 10,
+                    fontWeight: 700,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    color: "#ffffff",
-                    cursor: "pointer",
+                    gap: 3,
                     opacity: 0,
                     transition: "opacity 150ms ease",
+                    pointerEvents: "none",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
                   }}
                   className="cell-gear-btn"
-                  title="Open crop editor"
                 >
-                  <Settings size={12} />
-                </button>
+                  <Crop size={10} /> Edit Crop
+                </div>
               </div>
             );
           })}
@@ -280,13 +280,13 @@ export default function SheetPreview({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 12, color: "#7c7893" }}>
         <span>Sheet format: <strong>{sheetPreset.name}</strong> ({sheetPreset.wIn}″ × {sheetPreset.hIn}″)</span>
-        <span>Drag photos inside preview to center • Double click for full editor</span>
+        <span>Click any photo to open crop editor • Drag photo to pan position</span>
       </div>
     </div>
   );
 }
 
-// Sub-component to attach rendered canvas into DOM cleanly
+// Sub-component to attach rendered canvas into DOM cleanly with full ghosting prevention
 function RenderedCanvasHost({ canvas }) {
   const containerRef = useRef(null);
 
@@ -299,7 +299,13 @@ function RenderedCanvasHost({ canvas }) {
       previewImg.style.maxWidth = "100%";
       previewImg.style.height = "auto";
       previewImg.style.display = "block";
-      previewImg.style.pointerEvents = "none"; // allow click events through to overlay
+      previewImg.style.pointerEvents = "none";
+      previewImg.style.userSelect = "none";
+      previewImg.style.webkitUserSelect = "none";
+      previewImg.style.webkitUserDrag = "none";
+      previewImg.setAttribute("draggable", "false");
+      previewImg.oncontextmenu = (e) => e.preventDefault();
+      previewImg.ondragstart = (e) => e.preventDefault();
       containerRef.current.appendChild(previewImg);
     }
   }, [canvas]);
