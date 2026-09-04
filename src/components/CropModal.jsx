@@ -73,7 +73,7 @@ export default function CropModal({
   };
 
   const handleReset = () => {
-    setCropSettings({ offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 });
+    setCropSettings({ offsetX: 0, offsetY: 0, zoom: 1, rotate: 0, fitMode: "cover" });
   };
 
   const handleRotate = () => {
@@ -81,6 +81,31 @@ export default function CropModal({
       ...prev,
       rotate: ((prev.rotate || 0) + 90) % 360,
     }));
+  };
+
+  const handleFitEntirePhoto = () => {
+    // Determine auto-rotate to match photo aspect ratio with target print frame
+    const loadedImg = loadedImgRef.current;
+    const imgRatio = loadedImg ? loadedImg.width / loadedImg.height : 1.0;
+    const isPhotoLandscape = imgRatio > 1.0;
+    const isFramePortrait = photoPreset.wIn < photoPreset.hIn;
+    const isFrameLandscape = photoPreset.wIn > photoPreset.hIn;
+
+    let targetRotate = cropSettings.rotate || 0;
+    if (isPhotoLandscape && isFramePortrait) {
+      targetRotate = 90;
+    } else if (!isPhotoLandscape && isFrameLandscape) {
+      targetRotate = 90;
+    } else if ((cropSettings.rotate || 0) % 180 !== 0) {
+      targetRotate = 0;
+    }
+
+    setCropSettings({
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+      rotate: targetRotate,
+    });
   };
 
   return (
@@ -150,7 +175,7 @@ export default function CropModal({
             </div>
             <input
               type="range"
-              min="1.0"
+              min="0.3"
               max="3.0"
               step="0.05"
               value={cropSettings.zoom}
@@ -162,7 +187,16 @@ export default function CropModal({
           </div>
 
           {/* Quick Action Buttons */}
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              onClick={handleFitEntirePhoto}
+              className="bubble-button-primary"
+              style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
+              title="Auto-align and fit entire photo to print size with zero white borders"
+            >
+              <Check size={15} /> Fit to Photo Print Size (No Borders)
+            </button>
+
             <button
               onClick={handleRotate}
               className="bubble-button-secondary"

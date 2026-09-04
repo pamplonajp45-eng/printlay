@@ -9,7 +9,7 @@ import SheetPreview from "./components/SheetPreview";
 import ExportBar from "./components/ExportBar";
 import CropModal from "./components/CropModal";
 import GuideModal from "./components/GuideModal";
-import { Heart } from "lucide-react";
+import { Heart, Upload, Image, FileText, Sliders, X } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
 import { cropToCanvas, loadImage } from "./lib/cropEngine";
@@ -36,6 +36,7 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeCropPhoto, setActiveCropPhoto] = useState(null);
   const [showGuideModal, setShowGuideModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("photoPreset"); // "photos" | "photoPreset" | "sheetPreset" | "layout" | null
 
   // Active presets lookup with orientation applied
   const activePhotoPreset = useMemo(() => {
@@ -248,7 +249,7 @@ export default function App() {
 
   return (
     <div className="app-bg-wrapper">
-      <div style={{ maxWidth: "1020px", margin: "0 auto" }}>
+      <div className="app-main-container">
         
         {/* Header */}
         <Header
@@ -257,82 +258,157 @@ export default function App() {
           onOpenInfo={() => setShowGuideModal(true)}
         />
 
-        {/* Main Content Layout Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
+        {/* Canva-Style Editor Workspace Layout */}
+        <div className="editor-workspace-layout">
           
-          {/* Top: Upload Zone */}
-          <UploadZone
-            onPhotosAdded={handlePhotosAdded}
-            photoCount={photos.length}
-          />
+          {/* Slim Vertical Tool Rail (Far Left) */}
+          <nav className="editor-tool-rail">
+            <button
+              type="button"
+              className={`tool-rail-button ${activeTab === "photos" ? "active" : ""}`}
+              onClick={() => setActiveTab(activeTab === "photos" ? null : "photos")}
+              title="Upload & View Photos"
+            >
+              <Upload size={19} />
+              <span className="tool-rail-label">Uploads</span>
+              <span className="tool-rail-badge">{photos.length} photos</span>
+            </button>
 
-          {/* Uploaded Thumbnails Grid */}
-          <PhotoThumbGrid
-            photos={photos}
-            onRemovePhoto={handleRemovePhoto}
-            onDuplicatePhoto={handleDuplicatePhoto}
-            onMovePhoto={handleMovePhoto}
-            onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
-          />
+            <button
+              type="button"
+              className={`tool-rail-button ${activeTab === "photoPreset" ? "active" : ""}`}
+              onClick={() => setActiveTab(activeTab === "photoPreset" ? null : "photoPreset")}
+              title="Select Target Photo Size"
+            >
+              <Image size={19} />
+              <span className="tool-rail-label">Photo Size</span>
+              <span className="tool-rail-badge">{activePhotoPreset.name}</span>
+            </button>
 
-          {/* Configuration Pickers */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
-            <PresetPicker
-              selectedPresetId={photoPresetId}
-              onSelectPreset={(id) => setPhotoPresetId(id)}
-              photoOrientation={photoOrientation}
-              onChangePhotoOrientation={(o) => setPhotoOrientation(o)}
-              customPhotoSize={customPhotoSize}
-              onChangeCustomSize={(size) => setCustomPhotoSize(size)}
+            <button
+              type="button"
+              className={`tool-rail-button ${activeTab === "sheetPreset" ? "active" : ""}`}
+              onClick={() => setActiveTab(activeTab === "sheetPreset" ? null : "sheetPreset")}
+              title="Select Output Paper / Sheet Size"
+            >
+              <FileText size={19} />
+              <span className="tool-rail-label">Paper Size</span>
+              <span className="tool-rail-badge">{activeSheetPreset.name}</span>
+            </button>
+
+            <button
+              type="button"
+              className={`tool-rail-button ${activeTab === "layout" ? "active" : ""}`}
+              onClick={() => setActiveTab(activeTab === "layout" ? null : "layout")}
+              title="Layout & Cut Guide Settings"
+            >
+              <Sliders size={19} />
+              <span className="tool-rail-label">Guides</span>
+              <span className="tool-rail-badge">{dpi} DPI</span>
+            </button>
+          </nav>
+
+          {/* Expandable Settings Sub-Sidebar Drawer */}
+          {activeTab && (
+            <aside className="editor-sub-sidebar">
+              <div className="sub-sidebar-header">
+                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#3d3856" }}>
+                  {activeTab === "photos" && "Photo Uploads & Gallery"}
+                  {activeTab === "photoPreset" && "Target Photo Print Size"}
+                  {activeTab === "sheetPreset" && "Output Paper / Sheet Size"}
+                  {activeTab === "layout" && "Layout & Cut-Guide Settings"}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(null)}
+                  className="sub-sidebar-close-btn"
+                  title="Collapse Drawer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="sub-sidebar-content">
+                {activeTab === "photos" && (
+                  <>
+                    <UploadZone
+                      onPhotosAdded={handlePhotosAdded}
+                      photoCount={photos.length}
+                    />
+                    <PhotoThumbGrid
+                      photos={photos}
+                      onRemovePhoto={handleRemovePhoto}
+                      onDuplicatePhoto={handleDuplicatePhoto}
+                      onMovePhoto={handleMovePhoto}
+                      onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
+                    />
+                  </>
+                )}
+
+                {activeTab === "photoPreset" && (
+                  <PresetPicker
+                    selectedPresetId={photoPresetId}
+                    onSelectPreset={(id) => setPhotoPresetId(id)}
+                    photoOrientation={photoOrientation}
+                    onChangePhotoOrientation={(o) => setPhotoOrientation(o)}
+                    customPhotoSize={customPhotoSize}
+                    onChangeCustomSize={(size) => setCustomPhotoSize(size)}
+                  />
+                )}
+
+                {activeTab === "sheetPreset" && (
+                  <SheetPicker
+                    selectedSheetId={sheetPresetId}
+                    onSelectSheet={(id) => setSheetPresetId(id)}
+                    sheetOrientation={sheetOrientation}
+                    onChangeSheetOrientation={(o) => setSheetOrientation(o)}
+                  />
+                )}
+
+                {activeTab === "layout" && (
+                  <LayoutControls
+                    showCutGuides={showCutGuides}
+                    onToggleCutGuides={setShowCutGuides}
+                    cutGuideStyle={cutGuideStyle}
+                    onChangeCutGuideStyle={setCutGuideStyle}
+                    marginIn={marginIn}
+                    onChangeMargin={setMarginIn}
+                    gutterIn={gutterIn}
+                    onChangeGutter={setGutterIn}
+                    dpi={dpi}
+                    onChangeDpi={setDpi}
+                    frameBgColor={frameBgColor}
+                    onChangeFrameBgColor={setFrameBgColor}
+                    showSequenceLabels={showSequenceLabels}
+                    onToggleSequenceLabels={setShowSequenceLabels}
+                  />
+                )}
+              </div>
+            </aside>
+          )}
+
+          {/* Main Canvas Viewport (Zero-scroll, full screen visibility) */}
+          <main className="editor-canvas-viewport">
+            <SheetPreview
+              sheets={sheets}
+              photoPreset={activePhotoPreset}
+              sheetPreset={activeSheetPreset}
+              gridInfo={gridInfo}
+              photoCount={photos.length}
+              onUpdatePhotoCrop={handleUpdatePhotoCrop}
+              onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
             />
 
-            <SheetPicker
-              selectedSheetId={sheetPresetId}
-              onSelectSheet={(id) => setSheetPresetId(id)}
-              sheetOrientation={sheetOrientation}
-              onChangeSheetOrientation={(o) => setSheetOrientation(o)}
+            <ExportBar
+              sheets={sheets}
+              sheetPreset={activeSheetPreset}
+              photoCount={photos.length}
+              onGenerateLayout={handleGenerateLayout}
+              isGenerating={isGenerating}
             />
-          </div>
-
-          {/* Layout Controls (Cut guides, margins, spacing, DPI) */}
-          <LayoutControls
-            showCutGuides={showCutGuides}
-            onToggleCutGuides={setShowCutGuides}
-            cutGuideStyle={cutGuideStyle}
-            onChangeCutGuideStyle={setCutGuideStyle}
-            marginIn={marginIn}
-            onChangeMargin={setMarginIn}
-            gutterIn={gutterIn}
-            onChangeGutter={setGutterIn}
-            dpi={dpi}
-            onChangeDpi={setDpi}
-            frameBgColor={frameBgColor}
-            onChangeFrameBgColor={setFrameBgColor}
-            showSequenceLabels={showSequenceLabels}
-            onToggleSequenceLabels={setShowSequenceLabels}
-          />
-
-          {/* Interactive Sheet Preview with Direct Drag-to-Adjust */}
-          <SheetPreview
-            sheets={sheets}
-            photoPreset={activePhotoPreset}
-            sheetPreset={activeSheetPreset}
-            gridInfo={gridInfo}
-            photoCount={photos.length}
-            onUpdatePhotoCrop={handleUpdatePhotoCrop}
-            onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
-          />
+          </main>
 
         </div>
-
-        {/* Sticky Action Export Bar */}
-        <ExportBar
-          sheets={sheets}
-          sheetPreset={activeSheetPreset}
-          photoCount={photos.length}
-          onGenerateLayout={handleGenerateLayout}
-          isGenerating={isGenerating}
-        />
 
         {/* Footer credit */}
         <footer
@@ -342,8 +418,8 @@ export default function App() {
             justifyContent: "center",
             gap: "8px",
             flexWrap: "wrap",
-            marginTop: "32px",
-            padding: "16px 8px",
+            marginTop: "20px",
+            padding: "8px",
             fontSize: "13px",
             fontWeight: 600,
             color: "#7c7893",

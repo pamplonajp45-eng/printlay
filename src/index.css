@@ -48,12 +48,178 @@ h1, h2, h3, h4, .heading {
 .app-bg-wrapper {
   position: relative;
   min-height: 100vh;
-  padding: 32px 20px 100px;
+  padding: 24px 16px 80px;
   background:
     radial-gradient(circle at 15% 20%, #dce9fb 0%, transparent 45%),
     radial-gradient(circle at 85% 15%, #f3e1f7 0%, transparent 45%),
     radial-gradient(circle at 50% 90%, #fce9e1 0%, transparent 50%),
     #f6f5fa;
+}
+
+/* Canva-Style Editor Workspace Layout */
+.editor-workspace-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (min-width: 900px) {
+  .editor-workspace-layout {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 16px;
+    align-items: start;
+    height: calc(100vh - 120px);
+  }
+}
+
+/* Slim Tool Rail (Far Left) */
+.editor-tool-rail {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 20px;
+  padding: 8px;
+  box-shadow: 0 4px 20px rgba(99, 91, 166, 0.08);
+}
+
+@media (min-width: 900px) {
+  .editor-tool-rail {
+    flex-direction: column;
+    width: 84px;
+    height: 100%;
+    align-items: center;
+    padding: 14px 6px;
+  }
+}
+
+.tool-rail-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #57536b;
+  cursor: pointer;
+  width: 100%;
+  transition: all 180ms ease;
+}
+
+.tool-rail-button:hover {
+  background: rgba(143, 127, 224, 0.12);
+  color: #7c6dd8;
+}
+
+.tool-rail-button.active {
+  background: var(--primary-gradient);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(143, 127, 224, 0.35);
+}
+
+.tool-rail-label {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.tool-rail-badge {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 72px;
+}
+
+/* Expandable Sub-Sidebar Drawer */
+.editor-sub-sidebar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--card-radius);
+  padding: 16px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 200ms ease-out;
+}
+
+@media (min-width: 900px) {
+  .editor-sub-sidebar {
+    width: 360px;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .editor-sub-sidebar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .editor-sub-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(143, 127, 224, 0.3);
+    border-radius: 999px;
+  }
+}
+
+.sub-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.sub-sidebar-close-btn {
+  border: none;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #7c7893;
+  transition: background 150ms ease;
+}
+
+.sub-sidebar-close-btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+  color: #3d3856;
+}
+
+.sub-sidebar-content {
+  flex: 1;
+}
+
+/* Main Canvas Viewport (Zero-scroll) */
+.editor-canvas-viewport {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.editor-canvas-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+.editor-canvas-viewport::-webkit-scrollbar-thumb {
+  background: rgba(143, 127, 224, 0.3);
+  border-radius: 999px;
 }
 
 /* Frosted glass card */
