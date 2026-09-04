@@ -39,13 +39,13 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
         file = await convertHeicToJpeg(file);
       }
 
-      const url = URL.createObjectURL(file);
+      const dataUrl = await fileToDataUrl(file);
       processedItems.push({
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: file.name,
         file,
-        url,
-        dataUrl: url,
+        url: dataUrl,
+        dataUrl,
         cropSettings: { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
       });
     }
@@ -172,4 +172,13 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
       </div>
     </div>
   );
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }

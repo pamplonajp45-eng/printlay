@@ -3,20 +3,35 @@ import { get, set, del } from "idb-keyval";
 const DB_KEY_SESSION = "printlay_session_v1";
 
 /**
- * Saves active session state to IndexedDB.
+ * Saves active session state to IndexedDB with persistent base64 image storage.
  */
 export async function saveSession(state) {
   try {
     const serializablePhotos = await Promise.all(
       state.photos.map(async (p) => {
-        let dataUrl = p.dataUrl || p.url;
-        if (p.file && !dataUrl) {
-          dataUrl = await fileToDataUrl(p.file);
+        let persistentDataUrl = p.dataUrl || p.url;
+
+        // If photo has a file object or a temporary blob: URL, convert it to persistent base64
+        if (p.file) {
+          try {
+            persistentDataUrl = await fileToDataUrl(p.file);
+          } catch (e) {
+            console.warn("Failed to convert file to data URL:", e);
+          }
+        } else if (persistentDataUrl && persistentDataUrl.startsWith("blob:")) {
+          try {
+            const res = await fetch(persistentDataUrl);
+            const blob = await res.blob();
+            persistentDataUrl = await blobToDataUrl(blob);
+          } catch (e) {
+            console.warn("Failed to convert blob URL to data URL:", e);
+          }
         }
+
         return {
           id: p.id,
           name: p.name || "Photo",
-          dataUrl,
+          dataUrl: persistentDataUrl,
           cropSettings: p.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
         };
       })
@@ -88,5 +103,14 @@ function fileToDataUrl(file) {
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 }
