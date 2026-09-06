@@ -2,23 +2,26 @@ import { jsPDF } from "jspdf";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
+const yieldToMain = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 /**
  * Exports generated sheet canvases to a multi-page PDF document at exact physical inch scale.
+ * Optimized with high-speed JPEG encoding and async event loop yielding to keep UI responsive.
  *
  * @param {Array<{ canvas: HTMLCanvasElement }>} sheets
  * @param {Object} sheetPreset - Sheet preset object with wIn and hIn
  * @param {string} fileName - Destination filename
+ * @param {Function} [onProgress] - Optional callback (current, total)
  */
-export async function exportToPdf(sheets, sheetPreset, fileName = "printlay-layout.pdf") {
+export async function exportToPdf(sheets, sheetPreset, fileName = "printlay-layout.pdf", onProgress) {
   if (!sheets || sheets.length === 0) return;
+
+  await yieldToMain();
 
   const wIn = sheetPreset.wIn || 8.267;
   const hIn = sheetPreset.hIn || 11.693;
-
-  // Determine orientation
   const orientation = wIn > hIn ? "landscape" : "portrait";
 
-  // Create jsPDF instance with exact inch dimensions
   const pdf = new jsPDF({
     orientation,
     unit: "in",
@@ -27,12 +30,18 @@ export async function exportToPdf(sheets, sheetPreset, fileName = "printlay-layo
   });
 
   for (let i = 0; i < sheets.length; i++) {
+    if (onProgress) onProgress(i + 1, sheets.length);
+    await yieldToMain();
+
     if (i > 0) {
       pdf.addPage([wIn, hIn], orientation);
     }
 
-    const dataUrl = sheets[i].canvas.toDataURL("image/png", 1.0);
-    pdf.addImage(dataUrl, "PNG", 0, 0, wIn, hIn, undefined, "FAST");
+    // High quality JPEG encoding is ~10x faster than PNG for multi-megapixel print canvases
+    const dataUrl = sheets[i].canvas.toDataURL("image/jpeg", 0.95);
+    pdf.addImage(dataUrl, "JPEG", 0, 0, wIn, hIn, undefined, "FAST");
+    
+    await yieldToMain();
   }
 
   pdf.save(fileName);
@@ -51,14 +60,19 @@ export function exportSheetPng(sheetCanvas, index = 0, fileName = "") {
 }
 
 /**
- * Bundles all sheet canvases into a single ZIP archive and downloads it.
+ * Bundles all sheet canvases into a single ZIP archive with async event loop yielding.
  */
-export async function exportAllPngsZip(sheets, fileName = "printlay-sheets.zip") {
+export async function exportAllPngsZip(sheets, fileName = "printlay-sheets.zip", onProgress) {
   if (!sheets || sheets.length === 0) return;
+
+  await yieldToMain();
 
   const zip = new JSZip();
 
   for (let i = 0; i < sheets.length; i++) {
+    if (onProgress) onProgress(i + 1, sheets.length);
+    await yieldToMain();
+
     const sheetCanvas = sheets[i].canvas;
     const blob = await new Promise((resolve) => sheetCanvas.toBlob(resolve, "image/png"));
     if (blob) {
@@ -66,20 +80,30 @@ export async function exportAllPngsZip(sheets, fileName = "printlay-sheets.zip")
     }
   }
 
-  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
+    if (onProgress) onProgress(sheets.length, sheets.length, metadata.percent);
+  });
   saveAs(zipBlob, fileName);
 }
 
 /**
  * Triggers native browser print with custom CSS @page rules matching the sheet size.
  */
-export function triggerBrowserPrint(sheets, sheetPreset) {
+export async function triggerBrowserPrint(sheets, sheetPreset, onProgress) {
   if (!sheets || sheets.length === 0) return;
+
+  await yieldToMain();
 
   const wIn = sheetPreset.wIn || 8.267;
   const hIn = sheetPreset.hIn || 11.693;
 
-  // Create temporary hidden print iframe
+  const dataUrls = [];
+  for (let i = 0; i < sheets.length; i++) {
+    if (onProgress) onProgress(i + 1, sheets.length);
+    await yieldToMain();
+    dataUrls.push(sheets[i].canvas.toDataURL("image/jpeg", 0.95));
+  }
+
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
@@ -91,8 +115,8 @@ export function triggerBrowserPrint(sheets, sheetPreset) {
 
   const doc = iframe.contentWindow.document;
 
-  const imgTags = sheets
-    .map((s, idx) => `<div class="page"><img src="${s.canvas.toDataURL("image/png")}" /></div>`)
+  const imgTags = dataUrls
+    .map((dataUrl) => `<div class="page"><img src="${dataUrl}" /></div>`)
     .join("\n");
 
   doc.open();
@@ -144,7 +168,9 @@ export function triggerBrowserPrint(sheets, sheetPreset) {
   setTimeout(() => {
     iframe.contentWindow.print();
     setTimeout(() => {
-      document.body.removeChild(iframe);
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
     }, 1000);
   }, 300);
 }

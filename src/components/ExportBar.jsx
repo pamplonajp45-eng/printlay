@@ -11,12 +11,22 @@ export default function ExportBar({
 }) {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState({ current: 0, total: 0 });
+  const [zipProgress, setZipProgress] = useState({ current: 0, total: 0 });
 
   const handleDownloadPdf = async () => {
     if (!sheets || sheets.length === 0) return;
     setIsExportingPdf(true);
+    setPdfProgress({ current: 1, total: sheets.length });
+
+    // Yield execution to allow React state to render loading spinner immediately
+    await new Promise((r) => setTimeout(r, 50));
+
     try {
-      await exportToPdf(sheets, sheetPreset, `printlay-layout-${Date.now()}.pdf`);
+      await exportToPdf(sheets, sheetPreset, `printlay-layout-${Date.now()}.pdf`, (curr, tot) => {
+        setPdfProgress({ current: curr, total: tot });
+      });
     } catch (err) {
       console.error("PDF export failed:", err);
     }
@@ -26,11 +36,17 @@ export default function ExportBar({
   const handleDownloadZip = async () => {
     if (!sheets || sheets.length === 0) return;
     setIsExportingZip(true);
+    setZipProgress({ current: 1, total: sheets.length });
+
+    await new Promise((r) => setTimeout(r, 50));
+
     try {
       if (sheets.length === 1) {
         exportSheetPng(sheets[0].canvas, 0, `printlay-sheet-1.png`);
       } else {
-        await exportAllPngsZip(sheets, `printlay-sheets-${Date.now()}.zip`);
+        await exportAllPngsZip(sheets, `printlay-sheets-${Date.now()}.zip`, (curr, tot) => {
+          setZipProgress({ current: curr, total: tot });
+        });
       }
     } catch (err) {
       console.error("ZIP/PNG export failed:", err);
@@ -38,9 +54,16 @@ export default function ExportBar({
     setIsExportingZip(false);
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!sheets || sheets.length === 0) return;
-    triggerBrowserPrint(sheets, sheetPreset);
+    setIsPreparingPrint(true);
+    await new Promise((r) => setTimeout(r, 50));
+    try {
+      await triggerBrowserPrint(sheets, sheetPreset);
+    } catch (err) {
+      console.error("Print dialog failed:", err);
+    }
+    setIsPreparingPrint(false);
   };
 
   return (
@@ -65,7 +88,7 @@ export default function ExportBar({
           </h4>
           <p style={{ margin: "2px 0 0", fontSize: 12, color: "#7c7893" }}>
             {sheets.length > 0
-              ? `Formated for ${sheetPreset.name} (${sheetPreset.wIn}″ × ${sheetPreset.hIn}″)`
+              ? `Formatted for ${sheetPreset.name} (${sheetPreset.wIn}″ × ${sheetPreset.hIn}″)`
               : "Click generate to create print sheet layout"}
           </p>
         </div>
@@ -111,7 +134,9 @@ export default function ExportBar({
                 title="Download print-ready multi-page PDF"
               >
                 {isExportingPdf ? <Loader2 className="spinner" size={16} /> : <FileDown size={16} />}
-                Download PDF
+                {isExportingPdf
+                  ? `Building PDF (${pdfProgress.current}/${pdfProgress.total})...`
+                  : "Download PDF"}
               </button>
 
               {/* PNG / ZIP Download */}
@@ -123,17 +148,23 @@ export default function ExportBar({
                 title={sheets.length === 1 ? "Download PNG Sheet" : "Download ZIP of all PNG sheets"}
               >
                 {isExportingZip ? <Loader2 className="spinner" size={16} /> : sheets.length === 1 ? <Download size={16} /> : <Archive size={16} />}
-                {sheets.length === 1 ? "Download PNG" : "Download PNGs (ZIP)"}
+                {isExportingZip
+                  ? `Building ZIP (${zipProgress.current}/${zipProgress.total})...`
+                  : sheets.length === 1
+                  ? "Download PNG"
+                  : "Download PNGs (ZIP)"}
               </button>
 
               {/* Native Print Button */}
               <button
                 onClick={handlePrint}
+                disabled={isPreparingPrint}
                 className="bubble-button-secondary"
                 style={{ padding: "12px 18px", fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}
                 title="Open browser print dialog with 100% scale CSS sizing"
               >
-                <Printer size={16} /> Print
+                {isPreparingPrint ? <Loader2 className="spinner" size={16} /> : <Printer size={16} />}
+                {isPreparingPrint ? "Preparing..." : "Print"}
               </button>
             </>
           )}

@@ -136,20 +136,29 @@ export default function App() {
 
     setIsGenerating(true);
 
+    // Yield frame to allow React to paint loading spinner on screen
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     try {
-      // 1. Crop all photos to canvas using cropEngine
-      const croppedCanvases = await Promise.all(
-        photos.map(async (photo) => {
-          const loadedImg = await loadImage(photo.url || photo.dataUrl);
-          return cropToCanvas(loadedImg, activePhotoPreset, {
-            dpi,
-            cropSettings: photo.cropSettings,
-            filter: photo.filter || "none",
-            filterIntensity: typeof photo.filterIntensity === "number" ? photo.filterIntensity : 1,
-            frameBgColor,
-          });
-        })
-      );
+      // 1. Crop all photos to canvas using cropEngine with event-loop yielding
+      const croppedCanvases = [];
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        const loadedImg = await loadImage(photo.url || photo.dataUrl);
+        const canvas = cropToCanvas(loadedImg, activePhotoPreset, {
+          dpi,
+          cropSettings: photo.cropSettings,
+          filter: photo.filter || "none",
+          filterIntensity: typeof photo.filterIntensity === "number" ? photo.filterIntensity : 1,
+          frameBgColor,
+        });
+        croppedCanvases.push(canvas);
+
+        // Yield main thread every 4 photos
+        if (i % 4 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
 
       // 2. Lay out cropped photo canvases onto sheet(s) using layoutEngine
       const generatedSheets = generateSheetCanvases(
