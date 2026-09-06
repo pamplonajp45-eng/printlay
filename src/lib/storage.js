@@ -33,6 +33,8 @@ export async function saveSession(state) {
           name: p.name || "Photo",
           dataUrl: persistentDataUrl,
           cropSettings: p.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
+          filter: p.filter || "none",
+          filterIntensity: typeof p.filterIntensity === "number" ? p.filterIntensity : 1,
         };
       })
     );
@@ -74,6 +76,8 @@ export async function loadSession() {
       url: p.dataUrl,
       dataUrl: p.dataUrl,
       cropSettings: p.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
+      filter: p.filter || "none",
+      filterIntensity: typeof p.filterIntensity === "number" ? p.filterIntensity : 1,
     }));
 
     return {

@@ -1,16 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, RotateCw, ZoomIn, Move, RefreshCw, Check, Layers } from "lucide-react";
-import { cropToCanvas, loadImage } from "../lib/cropEngine";
+import { X, RotateCw, ZoomIn, RefreshCw, Check, Layers, Sparkles, Sliders } from "lucide-react";
+import { cropToCanvas, loadImage, PHOTO_FILTERS } from "../lib/cropEngine";
 
 export default function CropModal({
   photo,
   photoPreset,
   onSave,
   onApplyToAll,
+  onApplyFilterToAll,
   onClose,
 }) {
   const [cropSettings, setCropSettings] = useState(
     photo?.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 }
+  );
+  const [activeFilter, setActiveFilter] = useState(photo?.filter || "none");
+  const [filterIntensity, setFilterIntensity] = useState(
+    typeof photo?.filterIntensity === "number" ? photo.filterIntensity : 1
   );
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -32,7 +37,7 @@ export default function CropModal({
     return () => {
       mounted = false;
     };
-  }, [photo, photoPreset, cropSettings]);
+  }, [photo, photoPreset, cropSettings, activeFilter, filterIntensity]);
 
   const renderPreview = () => {
     if (!loadedImgRef.current || !previewCanvasRef.current) return;
@@ -40,6 +45,8 @@ export default function CropModal({
     const rendered = cropToCanvas(loadedImgRef.current, photoPreset, {
       dpi: 150, // fast preview DPI
       cropSettings,
+      filter: activeFilter,
+      filterIntensity,
       frameBgColor: "#ffffff",
     });
 
@@ -74,6 +81,8 @@ export default function CropModal({
 
   const handleReset = () => {
     setCropSettings({ offsetX: 0, offsetY: 0, zoom: 1, rotate: 0, fitMode: "cover" });
+    setActiveFilter("none");
+    setFilterIntensity(1);
   };
 
   const handleRotate = () => {
@@ -84,7 +93,6 @@ export default function CropModal({
   };
 
   const handleFitEntirePhoto = () => {
-    // Determine auto-rotate to match photo aspect ratio with target print frame
     const loadedImg = loadedImgRef.current;
     const imgRatio = loadedImg ? loadedImg.width / loadedImg.height : 1.0;
     const isPhotoLandscape = imgRatio > 1.0;
@@ -116,7 +124,7 @@ export default function CropModal({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <div>
             <h2 className="heading" style={{ margin: 0, fontSize: 22, color: "#3d3856" }}>
-              Adjust Photo Crop & Pan
+              Adjust Photo Crop, Pan & Filter
             </h2>
             <p style={{ margin: 0, fontSize: 14, color: "#7c7893" }}>
               Target preset: <strong>{photoPreset.name}</strong> ({photoPreset.wIn} × {photoPreset.hIn} in)
@@ -146,14 +154,14 @@ export default function CropModal({
             marginBottom: "20px",
             cursor: isDragging ? "grabbing" : "grab",
             userSelect: "none",
-            minHeight: "420px",
-            maxHeight: "55vh",
+            minHeight: "360px",
+            maxHeight: "48vh",
           }}
         >
           <canvas
             ref={previewCanvasRef}
             style={{
-              maxHeight: "400px",
+              maxHeight: "340px",
               maxWidth: "100%",
               borderRadius: "8px",
               boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
@@ -163,8 +171,61 @@ export default function CropModal({
         </div>
 
         {/* Controls */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "24px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
           
+          {/* Filter Selection Row */}
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#57536b", marginBottom: 8 }}>
+              <Sparkles size={14} color="#8f7fe0" /> Photo Color Filter
+            </div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: activeFilter !== "none" ? 10 : 0 }}>
+              {PHOTO_FILTERS.map((f) => {
+                const isSelected = activeFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setActiveFilter(f.id)}
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      borderRadius: "999px",
+                      border: isSelected ? "2px solid #8f7fe0" : "1px solid rgba(0,0,0,0.12)",
+                      background: isSelected ? "rgba(143, 127, 224, 0.15)" : "#ffffff",
+                      color: isSelected ? "#6f5ec7" : "#57536b",
+                      cursor: "pointer",
+                      transition: "all 150ms ease",
+                    }}
+                  >
+                    {f.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Filter Intensity Slider */}
+            {activeFilter !== "none" && (
+              <div style={{ background: "rgba(143, 127, 224, 0.06)", padding: "10px 14px", borderRadius: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, color: "#57536b", marginBottom: 4 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <Sliders size={13} color="#8f7fe0" /> Filter Intensity
+                  </span>
+                  <span>{Math.round(filterIntensity * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="1.0"
+                  step="0.05"
+                  value={filterIntensity}
+                  onChange={(e) => setFilterIntensity(parseFloat(e.target.value))}
+                  style={{ width: "100%", accentColor: "#8f7fe0" }}
+                />
+              </div>
+            )}
+          </div>
+
           {/* Zoom Slider */}
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600, color: "#57536b", marginBottom: 6 }}>
@@ -218,12 +279,12 @@ export default function CropModal({
         {/* Footer Actions */}
         <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
           <button
-            onClick={() => onApplyToAll(cropSettings)}
+            onClick={() => onApplyToAll(cropSettings, activeFilter, filterIntensity)}
             className="bubble-button-secondary"
             style={{ padding: "10px 18px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
-            title="Apply this crop, zoom and orientation to ALL photos in the batch"
+            title="Apply this crop, zoom, rotation AND filter intensity to ALL photos in the batch"
           >
-            <Layers size={14} color="#8f7fe0" /> Apply to All Photos
+            <Layers size={14} color="#8f7fe0" /> Apply All Settings to All
           </button>
 
           <div style={{ display: "flex", gap: "10px" }}>
@@ -231,7 +292,7 @@ export default function CropModal({
               Cancel
             </button>
             <button
-              onClick={() => onSave(cropSettings)}
+              onClick={() => onSave(cropSettings, activeFilter, filterIntensity)}
               className="bubble-button-primary"
               style={{ padding: "10px 22px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
             >

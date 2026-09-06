@@ -1,6 +1,11 @@
-/**
- * Per-photo smart crop & frame rendering engine.
- */
+export const PHOTO_FILTERS = [
+  { id: "none", name: "Normal", cssFilter: "none" },
+  { id: "bw", name: "B&W", cssFilter: "grayscale(100%) contrast(115%)" },
+  { id: "vintage", name: "Vintage", cssFilter: "sepia(45%) contrast(92%) brightness(104%) saturate(85%)" },
+  { id: "sepia", name: "Sepia", cssFilter: "sepia(85%) contrast(95%)" },
+  { id: "warm", name: "Warm", cssFilter: "sepia(25%) brightness(105%) contrast(105%) saturate(115%)" },
+  { id: "cool", name: "Cool", cssFilter: "hue-rotate(170deg) brightness(102%) contrast(105%) saturate(75%)" },
+];
 
 export function loadImage(url) {
   return new Promise((resolve, reject) => {
@@ -17,13 +22,15 @@ export function loadImage(url) {
  *
  * @param {HTMLImageElement} img - Loaded image element
  * @param {Object} preset - Photo preset object (from presets.js)
- * @param {Object} options - { dpi, cropSettings, frameBgColor }
+ * @param {Object} options - { dpi, cropSettings, filter, frameBgColor }
  * @returns {HTMLCanvasElement}
  */
 export function cropToCanvas(img, preset, options = {}) {
   const {
     dpi = 300,
     cropSettings = { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
+    filter = "none",
+    filterIntensity = 1,
     frameBgColor = "#ffffff",
   } = options;
 
@@ -118,16 +125,66 @@ export function cropToCanvas(img, preset, options = {}) {
   const centerX = photoX + photoW / 2;
   const centerY = photoY + photoH / 2;
 
-  if (rotate !== 0) {
-    ctx.translate(centerX, centerY);
-    ctx.rotate((rotate * Math.PI) / 180);
-    if (is90or270) {
-      ctx.drawImage(img, sx, sy, sw, sh, -photoH / 2, -photoW / 2, photoH, photoW);
+  const validIntensity = typeof filterIntensity === "number" ? Math.max(0, Math.min(1, filterIntensity)) : 1;
+  const filterDef = PHOTO_FILTERS.find((f) => f.id === filter);
+  const hasFilter = filterDef && filterDef.cssFilter !== "none" && validIntensity > 0;
+
+  const drawPhoto = (applyFilter = false, alpha = 1.0) => {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (applyFilter && filterDef) {
+      ctx.filter = filterDef.cssFilter;
     } else {
-      ctx.drawImage(img, sx, sy, sw, sh, -photoW / 2, -photoH / 2, photoW, photoH);
+      ctx.filter = "none";
     }
+
+    if (rotate !== 0) {
+      ctx.translate(centerX, centerY);
+      ctx.rotate((rotate * Math.PI) / 180);
+      if (is90or270) {
+        ctx.drawImage(img, sx, sy, sw, sh, -photoH / 2, -photoW / 2, photoH, photoW);
+      } else {
+        ctx.drawImage(img, sx, sy, sw, sh, -photoW / 2, -photoH / 2, photoW, photoH);
+      }
+    } else {
+      ctx.drawImage(img, sx, sy, sw, sh, photoX, photoY, photoW, photoH);
+    }
+    ctx.restore();
+  };
+
+  if (hasFilter && validIntensity < 1) {
+    // Base un-filtered photo
+    drawPhoto(false, 1.0);
+    // Overlaid filtered photo with opacity blending matching filterIntensity
+    drawPhoto(true, validIntensity);
+  } else if (hasFilter && validIntensity >= 1) {
+    drawPhoto(true, 1.0);
   } else {
-    ctx.drawImage(img, sx, sy, sw, sh, photoX, photoY, photoW, photoH);
+    drawPhoto(false, 1.0);
+  }
+
+  // Optional Vintage Vignette effect overlay (opacity scales with filterIntensity)
+  if (filter === "vintage" && validIntensity > 0) {
+    ctx.save();
+    ctx.globalAlpha = validIntensity;
+    const rx = photoW / 2;
+    const ry = photoH / 2;
+    const maxR = Math.hypot(rx, ry);
+    const vignetteGrad = ctx.createRadialGradient(
+      centerX,
+      centerY,
+      maxR * 0.35,
+      centerX,
+      centerY,
+      maxR * 0.95
+    );
+    vignetteGrad.addColorStop(0, "rgba(255, 245, 220, 0.04)");
+    vignetteGrad.addColorStop(0.65, "rgba(130, 85, 40, 0.07)");
+    vignetteGrad.addColorStop(1, "rgba(45, 25, 12, 0.26)");
+
+    ctx.fillStyle = vignetteGrad;
+    ctx.fillRect(photoX, photoY, photoW, photoH);
+    ctx.restore();
   }
 
   ctx.restore();

@@ -144,6 +144,8 @@ export default function App() {
           return cropToCanvas(loadedImg, activePhotoPreset, {
             dpi,
             cropSettings: photo.cropSettings,
+            filter: photo.filter || "none",
+            filterIntensity: typeof photo.filterIntensity === "number" ? photo.filterIntensity : 1,
             frameBgColor,
           });
         })
@@ -233,17 +235,57 @@ export default function App() {
     );
   }, []);
 
+  const handleUpdatePhotoFilter = useCallback((photoId, newFilter, newIntensity) => {
+    setPhotos((prev) =>
+      prev.map((p) =>
+        p.id === photoId
+          ? {
+              ...p,
+              filter: newFilter !== undefined ? newFilter : p.filter,
+              filterIntensity: newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
+            }
+          : p
+      )
+    );
+  }, []);
+
+  const handleApplyFilterToAll = useCallback((newFilter, newIntensity) => {
+    setPhotos((prev) =>
+      prev.map((p) => ({
+        ...p,
+        filter: newFilter !== undefined ? newFilter : p.filter,
+        filterIntensity: newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
+      }))
+    );
+  }, []);
+
   // Crop Modal Handlers
-  const handleSaveCrop = (newSettings) => {
+  const handleSaveCrop = (newSettings, newFilter, newIntensity) => {
     if (!activeCropPhoto) return;
     setPhotos((prev) =>
-      prev.map((p) => (p.id === activeCropPhoto.id ? { ...p, cropSettings: newSettings } : p))
+      prev.map((p) =>
+        p.id === activeCropPhoto.id
+          ? {
+              ...p,
+              cropSettings: newSettings,
+              filter: newFilter !== undefined ? newFilter : p.filter,
+              filterIntensity: newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
+            }
+          : p
+      )
     );
     setActiveCropPhoto(null);
   };
 
-  const handleApplyToAllCrops = (newSettings) => {
-    setPhotos((prev) => prev.map((p) => ({ ...p, cropSettings: { ...newSettings } })));
+  const handleApplyToAllCrops = (newSettings, newFilter, newIntensity) => {
+    setPhotos((prev) =>
+      prev.map((p) => ({
+        ...p,
+        cropSettings: { ...newSettings },
+        ...(newFilter !== undefined ? { filter: newFilter } : {}),
+        ...(newIntensity !== undefined ? { filterIntensity: newIntensity } : {}),
+      }))
+    );
     setActiveCropPhoto(null);
   };
 
@@ -341,6 +383,8 @@ export default function App() {
                       onDuplicatePhoto={handleDuplicatePhoto}
                       onMovePhoto={handleMovePhoto}
                       onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
+                      onUpdatePhotoFilter={handleUpdatePhotoFilter}
+                      onApplyFilterToAll={handleApplyFilterToAll}
                     />
                   </>
                 )}
