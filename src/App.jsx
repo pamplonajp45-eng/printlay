@@ -26,8 +26,12 @@ export default function App() {
   const [sheetPresetId, setSheetPresetId] = useState("a4");
   const [photoOrientation, setPhotoOrientation] = useState("portrait");
   const [sheetOrientation, setSheetOrientation] = useState("portrait");
-  const [customPhotoSize, setCustomPhotoSize] = useState({ wIn: 3.0, hIn: 4.0, unit: "in" });
-  
+  const [customPhotoSize, setCustomPhotoSize] = useState({
+    wIn: 3.0,
+    hIn: 4.0,
+    unit: "in",
+  });
+
   const [showCutGuides, setShowCutGuides] = useState(true);
   const [cutGuideStyle, setCutGuideStyle] = useState("dashed");
   const [marginIn, setMarginIn] = useState(0.25);
@@ -47,7 +51,8 @@ export default function App() {
     localStorage.setItem("printlay-theme", theme);
     const favicon = document.querySelector('link[rel="icon"]');
     if (favicon) {
-      favicon.href = theme === "dark" ? "/printlay-logo-dark.svg" : "/printlay-logo.svg";
+      favicon.href =
+        theme === "dark" ? "/printlay-logo-dark.svg" : "/printlay-logo.svg";
     }
   }, [theme]);
 
@@ -66,13 +71,15 @@ export default function App() {
         isPolaroid: false,
       };
     } else {
-      base = PHOTO_PRESETS.find((p) => p.id === photoPresetId) || PHOTO_PRESETS[0];
+      base =
+        PHOTO_PRESETS.find((p) => p.id === photoPresetId) || PHOTO_PRESETS[0];
     }
     return getOrientedPreset(base, photoOrientation);
   }, [photoPresetId, customPhotoSize, photoOrientation]);
 
   const activeSheetPreset = useMemo(() => {
-    const base = SHEET_PRESETS.find((s) => s.id === sheetPresetId) || SHEET_PRESETS[0];
+    const base =
+      SHEET_PRESETS.find((s) => s.id === sheetPresetId) || SHEET_PRESETS[0];
     return getOrientedPreset(base, sheetOrientation);
   }, [sheetPresetId, sheetOrientation]);
 
@@ -89,19 +96,25 @@ export default function App() {
     async function restoreSession() {
       const session = await loadSession();
       if (session) {
-        if (session.photos && session.photos.length > 0) setPhotos(session.photos);
+        if (session.photos && session.photos.length > 0)
+          setPhotos(session.photos);
         if (session.photoPresetId) setPhotoPresetId(session.photoPresetId);
         if (session.sheetPresetId) setSheetPresetId(session.sheetPresetId);
-        if (session.photoOrientation) setPhotoOrientation(session.photoOrientation);
-        if (session.sheetOrientation) setSheetOrientation(session.sheetOrientation);
-        if (session.customPhotoSize) setCustomPhotoSize(session.customPhotoSize);
-        if (session.showCutGuides !== undefined) setShowCutGuides(session.showCutGuides);
+        if (session.photoOrientation)
+          setPhotoOrientation(session.photoOrientation);
+        if (session.sheetOrientation)
+          setSheetOrientation(session.sheetOrientation);
+        if (session.customPhotoSize)
+          setCustomPhotoSize(session.customPhotoSize);
+        if (session.showCutGuides !== undefined)
+          setShowCutGuides(session.showCutGuides);
         if (session.cutGuideStyle) setCutGuideStyle(session.cutGuideStyle);
         if (session.marginIn !== undefined) setMarginIn(session.marginIn);
         if (session.gutterIn !== undefined) setGutterIn(session.gutterIn);
         if (session.dpi) setDpi(session.dpi);
         if (session.frameBgColor) setFrameBgColor(session.frameBgColor);
-        if (session.showSequenceLabels !== undefined) setShowSequenceLabels(session.showSequenceLabels);
+        if (session.showSequenceLabels !== undefined)
+          setShowSequenceLabels(session.showSequenceLabels);
       }
     }
     restoreSession();
@@ -155,14 +168,18 @@ export default function App() {
     try {
       // 1. Crop all photos to canvas using cropEngine with event-loop yielding
       const previewPhotos = photos.map((photo) => {
-        if (!textPreview || (textPreview.targetMode !== "all" && textPreview.targetMode !== photo.id)) {
+        if (
+          !textPreview ||
+          (textPreview.targetMode !== "all" &&
+            textPreview.targetMode !== photo.id)
+        ) {
           return photo;
         }
         return {
           ...photo,
           textOverlays: textPreview.overlay?.text?.trim()
-              ? [textPreview.overlay]
-              : (photo.textOverlays || []),
+            ? [textPreview.overlay]
+            : photo.textOverlays || [],
         };
       });
       const croppedCanvases = [];
@@ -173,7 +190,10 @@ export default function App() {
           dpi,
           cropSettings: photo.cropSettings,
           filter: photo.filter || "none",
-          filterIntensity: typeof photo.filterIntensity === "number" ? photo.filterIntensity : 1,
+          filterIntensity:
+            typeof photo.filterIntensity === "number"
+              ? photo.filterIntensity
+              : 1,
           frameBgColor,
           textOverlays: photo.textOverlays || [],
         });
@@ -198,7 +218,7 @@ export default function App() {
           showCutGuides,
           cutGuideStyle,
           showSequenceLabels,
-        }
+        },
       );
 
       setSheets(generatedSheets);
@@ -228,7 +248,19 @@ export default function App() {
     } else {
       setSheets([]);
     }
-  }, [photos, activePhotoPreset, activeSheetPreset, showCutGuides, cutGuideStyle, marginIn, gutterIn, dpi, frameBgColor, showSequenceLabels, textPreview]);
+  }, [
+    photos,
+    activePhotoPreset,
+    activeSheetPreset,
+    showCutGuides,
+    cutGuideStyle,
+    marginIn,
+    gutterIn,
+    dpi,
+    frameBgColor,
+    showSequenceLabels,
+    textPreview,
+  ]);
 
   // Handlers for Photo Management
   const handlePhotosAdded = (newPhotos) => {
@@ -267,54 +299,64 @@ export default function App() {
   // Text Overlay Handlers
   const handleUpdatePhotoText = useCallback((photoId, textOverlays) => {
     setPhotos((prev) =>
-      prev.map((p) => (p.id === photoId ? { ...p, textOverlays } : p))
+      prev.map((p) => (p.id === photoId ? { ...p, textOverlays } : p)),
     );
   }, []);
 
   const handleApplyTextToAll = useCallback((textOverlays) => {
-    setPhotos((prev) =>
-      prev.map((p) => ({ ...p, textOverlays }))
-    );
+    setPhotos((prev) => prev.map((p) => ({ ...p, textOverlays })));
   }, []);
 
   const handleRemoveTextFromAll = useCallback(() => {
-    setPhotos((prev) =>
-      prev.map((p) => ({ ...p, textOverlays: [] }))
-    );
+    setPhotos((prev) => prev.map((p) => ({ ...p, textOverlays: [] })));
   }, []);
 
   const handleUpdatePhotoCrop = useCallback((photoId, newCropSettings) => {
     setPhotos((prev) =>
-      prev.map((p) => (p.id === photoId ? { ...p, cropSettings: newCropSettings } : p))
+      prev.map((p) =>
+        p.id === photoId ? { ...p, cropSettings: newCropSettings } : p,
+      ),
     );
   }, []);
 
-  const handleUpdatePhotoFilter = useCallback((photoId, newFilter, newIntensity) => {
-    setPhotos((prev) =>
-      prev.map((p) =>
-        p.id === photoId
-          ? {
-              ...p,
-              filter: newFilter !== undefined ? newFilter : p.filter,
-              filterIntensity: newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
-            }
-          : p
-      )
-    );
-  }, []);
+  const handleUpdatePhotoFilter = useCallback(
+    (photoId, newFilter, newIntensity) => {
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photoId
+            ? {
+                ...p,
+                filter: newFilter !== undefined ? newFilter : p.filter,
+                filterIntensity:
+                  newIntensity !== undefined
+                    ? newIntensity
+                    : (p.filterIntensity ?? 1),
+              }
+            : p,
+        ),
+      );
+    },
+    [],
+  );
 
   const handleApplyFilterToAll = useCallback((newFilter, newIntensity) => {
     setPhotos((prev) =>
       prev.map((p) => ({
         ...p,
         filter: newFilter !== undefined ? newFilter : p.filter,
-        filterIntensity: newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
-      }))
+        filterIntensity:
+          newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
+      })),
     );
   }, []);
 
   // Crop Modal Handlers
-  const handleSaveCrop = (newSettings, newFilter, newIntensity, newTextOverlays) => {
+  const handleSaveCrop = (
+    newSettings,
+    newFilter,
+    newIntensity,
+    newTextOverlays,
+  ) => {
     if (!activeCropPhoto) return;
     setPhotos((prev) =>
       prev.map((p) =>
@@ -323,11 +365,17 @@ export default function App() {
               ...p,
               cropSettings: newSettings,
               filter: newFilter !== undefined ? newFilter : p.filter,
-              filterIntensity: newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
-              textOverlays: newTextOverlays !== undefined ? newTextOverlays : (p.textOverlays || []),
+              filterIntensity:
+                newIntensity !== undefined
+                  ? newIntensity
+                  : (p.filterIntensity ?? 1),
+              textOverlays:
+                newTextOverlays !== undefined
+                  ? newTextOverlays
+                  : p.textOverlays || [],
             }
-          : p
-      )
+          : p,
+      ),
     );
     setActiveCropPhoto(null);
   };
@@ -338,8 +386,10 @@ export default function App() {
         ...p,
         cropSettings: { ...newSettings },
         ...(newFilter !== undefined ? { filter: newFilter } : {}),
-        ...(newIntensity !== undefined ? { filterIntensity: newIntensity } : {}),
-      }))
+        ...(newIntensity !== undefined
+          ? { filterIntensity: newIntensity }
+          : {}),
+      })),
     );
     setActiveCropPhoto(null);
   };
@@ -347,25 +397,27 @@ export default function App() {
   return (
     <div className={`app-bg-wrapper theme-${theme}`} data-theme={theme}>
       <div className="app-main-container">
-        
         {/* Header */}
         <Header
           photoCount={photos.length}
           theme={theme}
-          onToggleTheme={() => setTheme((current) => current === "light" ? "dark" : "light")}
+          onToggleTheme={() =>
+            setTheme((current) => (current === "light" ? "dark" : "light"))
+          }
           onClearSession={handleClearSession}
           onOpenInfo={() => setShowGuideModal(true)}
         />
 
         {/* Canva-Style Editor Workspace Layout */}
         <div className="editor-workspace-layout">
-          
           {/* Slim Vertical Tool Rail (Far Left) */}
           <nav className="editor-tool-rail">
             <button
               type="button"
               className={`tool-rail-button ${activeTab === "photos" ? "active" : ""}`}
-              onClick={() => setActiveTab(activeTab === "photos" ? null : "photos")}
+              onClick={() =>
+                setActiveTab(activeTab === "photos" ? null : "photos")
+              }
               title="Upload & View Photos"
             >
               <Upload size={19} />
@@ -376,7 +428,9 @@ export default function App() {
             <button
               type="button"
               className={`tool-rail-button ${activeTab === "photoPreset" ? "active" : ""}`}
-              onClick={() => setActiveTab(activeTab === "photoPreset" ? null : "photoPreset")}
+              onClick={() =>
+                setActiveTab(activeTab === "photoPreset" ? null : "photoPreset")
+              }
               title="Select Target Photo Size"
             >
               <Image size={19} />
@@ -387,7 +441,9 @@ export default function App() {
             <button
               type="button"
               className={`tool-rail-button ${activeTab === "sheetPreset" ? "active" : ""}`}
-              onClick={() => setActiveTab(activeTab === "sheetPreset" ? null : "sheetPreset")}
+              onClick={() =>
+                setActiveTab(activeTab === "sheetPreset" ? null : "sheetPreset")
+              }
               title="Select Output Paper / Sheet Size"
             >
               <FileText size={19} />
@@ -398,7 +454,9 @@ export default function App() {
             <button
               type="button"
               className={`tool-rail-button ${activeTab === "layout" ? "active" : ""}`}
-              onClick={() => setActiveTab(activeTab === "layout" ? null : "layout")}
+              onClick={() =>
+                setActiveTab(activeTab === "layout" ? null : "layout")
+              }
               title="Layout & Cut Guide Settings"
             >
               <Sliders size={19} />
@@ -415,8 +473,10 @@ export default function App() {
               <Type size={19} />
               <span className="tool-rail-label">Text</span>
               <span className="tool-rail-badge">
-                {photos.filter(p => p.textOverlays?.some(o => o.text?.trim())).length > 0
-                  ? `${photos.filter(p => p.textOverlays?.some(o => o.text?.trim())).length} with text`
+                {photos.filter((p) =>
+                  p.textOverlays?.some((o) => o.text?.trim()),
+                ).length > 0
+                  ? `${photos.filter((p) => p.textOverlays?.some((o) => o.text?.trim())).length} with text`
                   : "Add text"}
               </span>
             </button>
@@ -426,7 +486,14 @@ export default function App() {
           {activeTab && (
             <aside className="editor-sub-sidebar">
               <div className="sub-sidebar-header">
-                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#3d3856" }}>
+                <h4
+                  style={{
+                    margin: 0,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: "#3d3856",
+                  }}
+                >
                   {activeTab === "photos" && "Photo Uploads & Gallery"}
                   {activeTab === "photoPreset" && "Target Photo Print Size"}
                   {activeTab === "sheetPreset" && "Output Paper / Sheet Size"}
@@ -534,7 +601,6 @@ export default function App() {
               isGenerating={isGenerating}
             />
           </main>
-
         </div>
 
         {/* Footer credit */}
@@ -555,11 +621,14 @@ export default function App() {
         >
           <span className="footer-brand">Jpdev&reg;</span>
           <Heart size={14} color="#ff6b8a" fill="#ff6b8a" />
-          <span style={{ color: "#b0acbe", fontWeight: 500 }}>Built with love by</span>
+          <span style={{ color: "#b0acbe", fontWeight: 500 }}>
+            Built with love by
+          </span>
           <span className="footer-highlight">jpdev</span>
-          <span style={{ color: "#b0acbe", fontWeight: 500 }}>for aesthetic finds</span>
+          <span style={{ color: "#b0acbe", fontWeight: 500 }}>
+            for Acethetic Finds
+          </span>
         </footer>
-
       </div>
 
       {/* Per-Photo Crop & Pan Override Modal */}
