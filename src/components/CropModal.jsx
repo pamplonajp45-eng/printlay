@@ -305,7 +305,7 @@ export default function CropModal({
                           : "1px solid rgba(0,0,0,0.12)",
                         background: isSelected
                           ? "rgba(143, 127, 224, 0.15)"
-                          : "#ffffff",
+                          : "rgba(143, 127, 224, 0.12)",
                         color: isSelected ? "#6f5ec7" : "#57536b",
                         cursor: "pointer",
                         transition: "all 150ms ease",
@@ -517,7 +517,7 @@ export default function CropModal({
                         background:
                           editingText.fontFamily === f.id
                             ? "rgba(143,127,224,0.15)"
-                            : "#fff",
+                            : "rgba(143,127,224,0.12)",
                         border:
                           editingText.fontFamily === f.id
                             ? "2px solid #8f7fe0"
@@ -571,7 +571,7 @@ export default function CropModal({
                         background:
                           editingText.fontWeight === value
                             ? "rgba(143,127,224,0.15)"
-                            : "#fff",
+                            : "rgba(143,127,224,0.12)",
                         color:
                           editingText.fontWeight === value
                             ? "#6f5ec7"
@@ -689,7 +689,7 @@ export default function CropModal({
                           background:
                             editingText.align === v
                               ? "rgba(143,127,224,0.15)"
-                              : "#fff",
+                              : "rgba(143,127,224,0.12)",
                           color:
                             editingText.align === v ? "#6f5ec7" : "#57536b",
                           cursor: "pointer",
@@ -753,7 +753,7 @@ export default function CropModal({
                             : "1px solid rgba(143,127,224,0.25)",
                           background: isActive
                             ? "rgba(143,127,224,0.12)"
-                            : "#fff",
+                            : "rgba(143,127,224,0.12)",
                           color: isActive ? "#6f5ec7" : "#57536b",
                         }}
                       >
@@ -902,6 +902,7 @@ export default function CropModal({
         )}
         {/* Footer Actions */}
         <div
+          className="crop-modal-actions"
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -962,6 +963,7 @@ export default function CropModal({
                 const finalOverlays = editingText?.text?.trim()
                   ? [editingText]
                   : textOverlays;
+                setTextOverlays(finalOverlays);
                 onSave(
                   cropSettings,
                   activeFilter,

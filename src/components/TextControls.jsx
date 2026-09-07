@@ -202,7 +202,7 @@ export default function TextControls({
   }, []);
 
   useEffect(() => {
-    onPreviewChange?.({ targetMode, overlay: editingOverlay });
+    onPreviewChange?.(editingOverlay?.text?.trim() ? { targetMode, overlay: editingOverlay } : null);
   }, [targetMode, editingOverlay, onPreviewChange]);
 
   useEffect(() => () => onPreviewChange?.(null), [onPreviewChange]);
@@ -223,7 +223,7 @@ export default function TextControls({
               padding: "5px 12px",
               fontSize: 12,
               borderRadius: "999px",
-              background: targetMode === "all" ? "linear-gradient(135deg,#8f7fe0,#b78ee0)" : "#fff",
+              background: targetMode === "all" ? "linear-gradient(135deg,#8f7fe0,#b78ee0)" : "rgba(143,127,224,0.12)",
               color: targetMode === "all" ? "#fff" : "#4e4963",
               border: targetMode === "all" ? "none" : "1px solid rgba(143,127,224,0.25)",
               fontWeight: 700,
@@ -241,7 +241,7 @@ export default function TextControls({
                 padding: "5px 10px",
                 fontSize: 11,
                 borderRadius: "999px",
-                background: targetMode === p.id ? "linear-gradient(135deg,#8f7fe0,#b78ee0)" : "#fff",
+                background: targetMode === p.id ? "linear-gradient(135deg,#8f7fe0,#b78ee0)" : "rgba(143,127,224,0.12)",
                 color: targetMode === p.id ? "#fff" : "#4e4963",
                 border: targetMode === p.id ? "none" : "1px solid rgba(143,127,224,0.25)",
                 fontWeight: 700,
@@ -274,7 +274,7 @@ export default function TextControls({
                 padding: "5px 9px",
                 fontSize: 11,
                 borderRadius: "8px",
-                background: "#fff",
+                background: "rgba(143,127,224,0.12)",
                 border: "1px solid rgba(143,127,224,0.3)",
                 color: "#4e4963",
                 fontWeight: 600,
@@ -306,7 +306,7 @@ export default function TextControls({
             padding: "10px 12px",
             borderRadius: "12px",
             border: "1.5px solid rgba(143,127,224,0.3)",
-            background: "rgba(255,255,255,0.85)",
+            background: "rgba(143,127,224,0.06)",
             fontSize: 13,
             fontFamily: `"${editingOverlay.fontFamily}", sans-serif`,
             fontWeight: editingOverlay.fontWeight,
@@ -331,7 +331,7 @@ export default function TextControls({
                 padding: "6px 11px",
                 fontSize: 12,
                 borderRadius: "10px",
-                background: editingOverlay.fontFamily === f.id ? "rgba(143,127,224,0.15)" : "#fff",
+                background: editingOverlay.fontFamily === f.id ? "rgba(143,127,224,0.15)" : "rgba(143,127,224,0.12)",
                 border: editingOverlay.fontFamily === f.id ? "2px solid #8f7fe0" : "1px solid rgba(143,127,224,0.25)",
                 color: editingOverlay.fontFamily === f.id ? "#6f5ec7" : "#57536b",
                 cursor: "pointer",
@@ -374,7 +374,7 @@ export default function TextControls({
                   padding: "6px 0",
                   borderRadius: 8,
                   border: editingOverlay.fontWeight === w ? "2px solid #8f7fe0" : "1px solid rgba(143,127,224,0.25)",
-                  background: editingOverlay.fontWeight === w ? "rgba(143,127,224,0.15)" : "#fff",
+                  background: editingOverlay.fontWeight === w ? "rgba(143,127,224,0.15)" : "rgba(143,127,224,0.12)",
                   color: editingOverlay.fontWeight === w ? "#6f5ec7" : "#57536b",
                   fontWeight: w,
                   fontSize: 12,
@@ -427,7 +427,7 @@ export default function TextControls({
                   padding: "6px 0",
                   borderRadius: 8,
                   border: editingOverlay.align === v ? "2px solid #8f7fe0" : "1px solid rgba(143,127,224,0.25)",
-                  background: editingOverlay.align === v ? "rgba(143,127,224,0.15)" : "#fff",
+                  background: editingOverlay.align === v ? "rgba(143,127,224,0.15)" : "rgba(143,127,224,0.12)",
                   color: editingOverlay.align === v ? "#6f5ec7" : "#57536b",
                   cursor: "pointer",
                 }}
@@ -455,7 +455,7 @@ export default function TextControls({
                   fontSize: 11,
                   borderRadius: "8px",
                   border: isActive ? "2px solid #8f7fe0" : "1px solid rgba(143,127,224,0.25)",
-                  background: isActive ? "rgba(143,127,224,0.12)" : "#fff",
+                  background: isActive ? "rgba(143,127,224,0.12)" : "rgba(143,127,224,0.12)",
                   color: isActive ? "#6f5ec7" : "#57536b",
                   fontWeight: 600,
                   cursor: "pointer",

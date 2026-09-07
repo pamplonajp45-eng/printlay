@@ -160,7 +160,9 @@ export default function App() {
         }
         return {
           ...photo,
-          textOverlays: textPreview.overlay?.text?.trim() ? [textPreview.overlay] : [],
+          textOverlays: textPreview.overlay?.text?.trim()
+              ? [textPreview.overlay]
+              : (photo.textOverlays || []),
         };
       });
       const croppedCanvases = [];

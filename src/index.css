@@ -100,13 +100,13 @@ h1, h2, h3, h4, .heading {
 }
 
 .theme-dark .bubble-button-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(143, 127, 224, 0.22);
+  border-color: rgba(194, 184, 255, 0.3);
   color: #f0edff;
 }
 
 .theme-dark .bubble-button-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.17);
+  background: rgba(143, 127, 224, 0.34);
 }
 
 .theme-dark .editor-sub-sidebar input:not([type="range"]):not([type="color"]),
@@ -324,8 +324,8 @@ h1, h2, h3, h4, .heading {
   border-radius: var(--pill-radius);
   font-size: 13px;
   font-weight: 600;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(143, 127, 224, 0.25);
+  background: rgba(143, 127, 224, 0.12);
   color: #57536b;
   cursor: pointer;
   transition: all 180ms ease;
@@ -333,7 +333,7 @@ h1, h2, h3, h4, .heading {
 }
 
 .bubble-pill-inactive:hover {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(143, 127, 224, 0.2);
   transform: translateY(-1px);
 }
 
@@ -388,9 +388,9 @@ h1, h2, h3, h4, .heading {
 }
 
 .bubble-button-secondary {
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(143, 127, 224, 0.25);
   border-radius: var(--pill-radius);
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(143, 127, 224, 0.12);
   color: var(--text-dark);
   font-weight: 600;
   cursor: pointer;
@@ -398,9 +398,9 @@ h1, h2, h3, h4, .heading {
 }
 
 .bubble-button-secondary:hover:not(:disabled) {
-  background: #ffffff;
+  background: rgba(143, 127, 224, 0.2);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 12px rgba(143, 127, 224, 0.18);
 }
 
 .bubble-button-secondary:active:not(:disabled) {
@@ -484,8 +484,7 @@ h1, h2, h3, h4, .heading {
   display: flex;
   gap: 6px;
   padding: 0 0 14px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(12px);
+  background: transparent;
 }
 
 .crop-modal-tab {
@@ -493,7 +492,7 @@ h1, h2, h3, h4, .heading {
   padding: 8px 10px;
   border: 1px solid rgba(143, 127, 224, 0.3);
   border-radius: 10px;
-  background: #fff;
+  background: rgba(143, 127, 224, 0.12);
   color: #57536b;
   font-size: 13px;
   font-weight: 700;
@@ -510,6 +509,18 @@ h1, h2, h3, h4, .heading {
 .crop-modal-inspector::-webkit-scrollbar-thumb {
   background: rgba(143, 127, 224, 0.35);
   border-radius: 999px;
+}
+
+.crop-modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 14px 0 2px;
+  background: transparent;
+}
+
+.theme-dark .crop-modal-actions {
+  background: rgba(35, 31, 53, 0.9);
 }
 
 @media (max-width: 760px) {
@@ -538,6 +549,10 @@ h1, h2, h3, h4, .heading {
   .crop-modal-inspector {
     overflow: visible;
     padding: 0;
+  }
+
+  .crop-modal-actions {
+    position: static;
   }
 }
 
