@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft,
   ChevronRight,
   ZoomIn,
   ZoomOut,
   Layers,
+  Maximize,
 } from "lucide-react";
 
 export default function SheetPreview({
@@ -23,6 +24,137 @@ export default function SheetPreview({
   const [editingLabel, setEditingLabel] = useState(false);
   const [editValue, setEditValue] = useState("");
   const canvasContainerRef = useRef(null);
+
+  const ZOOM_MIN = 0.25;
+  const ZOOM_MAX = 4;
+
+  // Canva-style viewport controls: Ctrl+wheel to zoom, Space+drag to pan
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isSpaceDown, setIsSpaceDown] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef(null);
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const zoomRef = useRef(previewZoom);
+  zoomRef.current = previewZoom;
+
+  // Hold Space → panning mode (ignored while typing in text fields)
+  const spaceDownRef = useRef(false);
+  useEffect(() => {
+    // Only text-entry elements block the Space shortcut. Sliders (INPUT[type=
+    // range]) and buttons must NOT: after clicking a cell/slider, focus often
+    // stays there (mousedown is preventDefault'd), and panning would silently
+    // stop working.
+    const isTypingTarget = (t) =>
+      t instanceof HTMLElement &&
+      (t.isContentEditable ||
+        t.tagName === "TEXTAREA" ||
+        (t.tagName === "INPUT" &&
+          !["range", "checkbox", "radio", "button", "submit", "color"].includes(
+            t.type,
+          )));
+
+    const handleKeyDown = (e) => {
+      if (e.code !== "Space" || isTypingTarget(e.target)) return;
+      e.preventDefault();
+      spaceDownRef.current = true;
+      setIsSpaceDown(true);
+    };
+    const handleKeyUp = (e) => {
+      if (e.code !== "Space") return;
+      spaceDownRef.current = false;
+      setIsSpaceDown(false);
+      setIsPanning(false);
+    };
+    const handleBlur = () => {
+      spaceDownRef.current = false;
+      setIsSpaceDown(false);
+      setIsPanning(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+
+  // Ctrl + scroll wheel zooms toward the cursor position.
+  // Uses a callback ref so the listener attaches whenever the viewport div mounts
+  // (it's only rendered when sheets exist, after the empty-state early return).
+  const wheelZoomRef = useCallback((el) => {
+    canvasContainerRef.current = el;
+    if (!el) return;
+
+    const handleWheel = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+
+      const rect = el.getBoundingClientRect();
+      // Cursor position relative to the container's center
+      const px = e.clientX - rect.left - rect.width / 2;
+      const py = e.clientY - rect.top - rect.height / 2;
+
+      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      const newZoom = Math.min(
+        ZOOM_MAX,
+        Math.max(ZOOM_MIN, zoomRef.current * factor),
+      );
+
+      const cur = panRef.current;
+      // Keep the content point under the cursor stationary:
+      // content point = (cursor - pan) / zoom, re-anchored with new zoom
+      const newPanX = px - ((px - cur.x) / zoomRef.current) * newZoom;
+      const newPanY = py - ((py - cur.y) / zoomRef.current) * newZoom;
+
+      zoomRef.current = newZoom;
+      setPreviewZoom(newZoom);
+      setPan({ x: newPanX, y: newPanY });
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+  }, []);
+
+  // Space + drag panning
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleMouseMove = (e) => {
+      if (!panStartRef.current) return;
+      setPan({
+        x: panStartRef.current.originX + (e.clientX - panStartRef.current.x),
+        y: panStartRef.current.originY + (e.clientY - panStartRef.current.y),
+      });
+    };
+    const handleMouseUp = () => {
+      setIsPanning(false);
+      panStartRef.current = null;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isPanning]);
+
+  const handleViewportMouseDown = (e) => {
+    // Use the ref (not state) so a mousedown landing in the same frame as the
+    // keydown can't miss the Space press.
+    if (!spaceDownRef.current) return;
+    e.preventDefault();
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      originX: panRef.current.x,
+      originY: panRef.current.y,
+    };
+    setIsPanning(true);
+  };
 
   // Global mousemove and mouseup listeners for drag & click handling
   useEffect(() => {
@@ -147,7 +279,7 @@ export default function SheetPreview({
 
   return (
     <div
-      ref={canvasContainerRef}
+      ref={wheelZoomRef}
       style={{
         position: "relative",
         width: "100%",
@@ -158,6 +290,8 @@ export default function SheetPreview({
         alignItems: "center",
         background: "#e7e6ee",
         overflow: "hidden",
+        cursor: isSpaceDown ? (isPanning ? "grabbing" : "grab") : "default",
+        onMouseDown: handleViewportMouseDown,
       }}
     >
       {/* Floating sheet-format label — bottom-right, clear of the rail/sidebar */}
@@ -179,9 +313,9 @@ export default function SheetPreview({
       <div
         style={{
           position: "relative",
-          transform: `scale(${previewZoom})`,
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${previewZoom})`,
           transformOrigin: "center center",
-          transition: "transform 200ms ease",
+          transition: isPanning ? "none" : "transform 120ms ease",
           boxShadow: "0 4px 18px rgba(35, 31, 53, 0.16)",
           borderRadius: "3px",
           background: "#ffffff",
@@ -211,6 +345,7 @@ export default function SheetPreview({
                 setHoveredCellId((id) => (id === cellKey ? null : id))
               }
               onMouseDown={(e) => {
+                if (isSpaceDown || isPanning) return; // Space = viewport pan, not photo pan
                 e.preventDefault();
                 e.stopPropagation();
                 setDraggingCell({
@@ -229,7 +364,11 @@ export default function SheetPreview({
                 top: `${topPct}%`,
                 width: `${widthPct}%`,
                 height: `${heightPct}%`,
-                cursor: isDraggingThis ? "grabbing" : "pointer",
+                cursor: isSpaceDown
+                  ? (isPanning ? "grabbing" : "grab")
+                  : isDraggingThis
+                    ? "grabbing"
+                    : "pointer",
                 border:
                   isDraggingThis || isHovered
                     ? "1.5px solid #8f7fe0"
@@ -249,6 +388,7 @@ export default function SheetPreview({
             onMouseEnter={() => setHoveredLabel(true)}
             onMouseLeave={() => setHoveredLabel(false)}
             onMouseDown={(e) => {
+              if (isSpaceDown || isPanning) return; // Space = viewport pan
               e.preventDefault();
               e.stopPropagation();
               if (draggingCell) return;
@@ -299,7 +439,9 @@ export default function SheetPreview({
         }}
       >
         <button
-          onClick={() => setPreviewZoom((z) => Math.max(0.6, z - 0.2))}
+          onClick={() =>
+            setPreviewZoom((z) => Math.max(ZOOM_MIN, z - 0.2))
+          }
           style={{
             border: "none",
             background: "none",
@@ -324,7 +466,9 @@ export default function SheetPreview({
           {Math.round(previewZoom * 100)}%
         </span>
         <button
-          onClick={() => setPreviewZoom((z) => Math.min(2.0, z + 0.2))}
+          onClick={() =>
+            setPreviewZoom((z) => Math.min(ZOOM_MAX, z + 0.2))
+          }
           style={{
             border: "none",
             background: "none",
@@ -336,6 +480,25 @@ export default function SheetPreview({
           title="Zoom in"
         >
           <ZoomIn size={15} />
+        </button>
+        <button
+          onClick={() => {
+            setPreviewZoom(1);
+            setPan({ x: 0, y: 0 });
+          }}
+          style={{
+            border: "none",
+            background: "none",
+            cursor: "pointer",
+            padding: 6,
+            color: "#57536b",
+            display: "flex",
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+          title="Reset zoom & position (also: Ctrl+scroll to zoom, Space+drag to pan)"
+        >
+          <Maximize size={15} />
         </button>
 
         {hasMultiplePages && (
@@ -508,14 +671,17 @@ function RenderedCanvasHost({ canvas }) {
       previewCanvas = document.createElement("canvas");
       previewCanvas.width = Math.round(canvas.width * scale);
       previewCanvas.height = Math.round(canvas.height * scale);
-      previewCanvas
-        .getContext("2d")
-        .drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
+      const pctx = previewCanvas.getContext("2d");
+      // High-quality smoothing keeps thin 1px cut-guide lines from dropping
+      // out or flickering during the downscale (the "inconsistent guides" bug)
+      pctx.imageSmoothingEnabled = true;
+      pctx.imageSmoothingQuality = "high";
+      pctx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
     }
 
     containerRef.current.innerHTML = "";
     const previewImg = document.createElement("img");
-    previewImg.src = previewCanvas.toDataURL("image/jpeg", 0.85);
+    previewImg.src = previewCanvas.toDataURL("image/jpeg", 0.9);
     previewImg.style.maxHeight = "680px";
     previewImg.style.maxWidth = "100%";
     previewImg.style.height = "auto";

@@ -39,6 +39,8 @@ export default function App() {
 
   const [showCutGuides, setShowCutGuides] = useState(true);
   const [cutGuideStyle, setCutGuideStyle] = useState("dashed");
+  const [cutGuideColor, setCutGuideColor] = useState("#b0b0be");
+  const [cutGuideOpacity, setCutGuideOpacity] = useState(1);
   const [marginIn, setMarginIn] = useState(0.25);
   const [gutterIn, setGutterIn] = useState(0.1);
   const [dpi, setDpi] = useState(300);
@@ -117,6 +119,9 @@ export default function App() {
         if (session.showCutGuides !== undefined)
           setShowCutGuides(session.showCutGuides);
         if (session.cutGuideStyle) setCutGuideStyle(session.cutGuideStyle);
+        if (session.cutGuideColor) setCutGuideColor(session.cutGuideColor);
+        if (typeof session.cutGuideOpacity === "number")
+          setCutGuideOpacity(session.cutGuideOpacity);
         if (session.marginIn !== undefined) setMarginIn(session.marginIn);
         if (session.gutterIn !== undefined) setGutterIn(session.gutterIn);
         if (session.dpi) setDpi(session.dpi);
@@ -150,6 +155,8 @@ export default function App() {
         customPhotoSize,
         showCutGuides,
         cutGuideStyle,
+        cutGuideColor,
+        cutGuideOpacity,
         marginIn,
         gutterIn,
         dpi,
@@ -169,6 +176,8 @@ export default function App() {
     customPhotoSize,
     showCutGuides,
     cutGuideStyle,
+    cutGuideColor,
+    cutGuideOpacity,
     marginIn,
     gutterIn,
     dpi,
@@ -247,6 +256,8 @@ export default function App() {
           gutterIn,
           showCutGuides,
           cutGuideStyle,
+          cutGuideColor,
+          cutGuideOpacity,
           showSequenceLabels,
           pageLabel,
           pageLabelOverrides: pageLabels,
@@ -271,6 +282,8 @@ export default function App() {
     gutterIn,
     showCutGuides,
     cutGuideStyle,
+    cutGuideColor,
+    cutGuideOpacity,
     frameBgColor,
     showSequenceLabels,
     pageLabel,
@@ -397,6 +410,18 @@ export default function App() {
     [],
   );
 
+  // Photos that fit on one page (used for "apply filter to page N" feature).
+  // For continuous sheets perSheet is "Unlimited", so compute it from rows.
+  const photosPerPage = useMemo(() => {
+    if (typeof gridInfo.perSheet === "number" && gridInfo.perSheet > 0) {
+      return gridInfo.perSheet;
+    }
+    const cols = gridInfo.cols || 1;
+    return cols * Math.max(1, Math.ceil(photos.length / cols));
+  }, [gridInfo, photos.length]);
+
+  const totalPages = Math.max(1, Math.ceil(photos.length / photosPerPage));
+
   const handleApplyFilterToAll = useCallback((newFilter, newIntensity) => {
     setPhotos((prev) =>
       prev.map((p) => ({
@@ -407,6 +432,29 @@ export default function App() {
       })),
     );
   }, []);
+
+  // Apply a filter (and intensity) only to the photos that land on a page
+  const handleApplyFilterToPage = useCallback(
+    (pageNum, newFilter, newIntensity) => {
+      const start = (pageNum - 1) * photosPerPage;
+      const end = start + photosPerPage;
+      setPhotos((prev) =>
+        prev.map((p, i) =>
+          i >= start && i < end
+            ? {
+                ...p,
+                filter: newFilter !== undefined ? newFilter : p.filter,
+                filterIntensity:
+                  newIntensity !== undefined
+                    ? newIntensity
+                    : (p.filterIntensity ?? 1),
+              }
+            : p,
+        ),
+      );
+    },
+    [photosPerPage],
+  );
 
   // Crop Modal Handlers
   const handleSaveCrop = (
@@ -473,7 +521,9 @@ export default function App() {
         />
 
         {/* Canva-Style Editor Workspace Layout */}
-        <div className="editor-workspace-layout">
+        <div
+          className={`editor-workspace-layout ${activeTab ? "" : "drawer-closed"}`}
+        >
           {/* Slim Vertical Tool Rail (Far Left) */}
           <nav className="editor-tool-rail">
             <button
@@ -619,6 +669,10 @@ export default function App() {
                     onToggleCutGuides={setShowCutGuides}
                     cutGuideStyle={cutGuideStyle}
                     onChangeCutGuideStyle={setCutGuideStyle}
+                    cutGuideColor={cutGuideColor}
+                    onChangeCutGuideColor={setCutGuideColor}
+                    cutGuideOpacity={cutGuideOpacity}
+                    onChangeCutGuideOpacity={setCutGuideOpacity}
                     marginIn={marginIn}
                     onChangeMargin={setMarginIn}
                     gutterIn={gutterIn}
@@ -698,6 +752,8 @@ export default function App() {
           onSave={handleSaveCrop}
           onApplyToAll={handleApplyToAllCrops}
           onApplyTextToAll={handleApplyTextToAll}
+          onApplyFilterToPage={handleApplyFilterToPage}
+          totalPages={totalPages}
           onClose={() => setActiveCropPhoto(null)}
         />
       )}

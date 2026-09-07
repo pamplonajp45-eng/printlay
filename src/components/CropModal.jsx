@@ -22,6 +22,8 @@ export default function CropModal({
   onSave,
   onApplyToAll,
   onApplyTextToAll,
+  onApplyFilterToPage,
+  totalPages = 1,
   onClose,
 }) {
   const [cropSettings, setCropSettings] = useState(
@@ -32,6 +34,9 @@ export default function CropModal({
     typeof photo?.filterIntensity === "number" ? photo.filterIntensity : 1,
   );
   const [isDragging, setIsDragging] = useState(false);
+  // Filter apply-scope: "photo" (this photo only) | "all" | "page" (specific page no.)
+  const [applyTarget, setApplyTarget] = useState("photo");
+  const [applyPage, setApplyPage] = useState(1);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageReady, setImageReady] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState("crop"); // "crop" | "text"
@@ -354,6 +359,124 @@ export default function CropModal({
                     }
                     style={{ width: "100%", accentColor: "#8f7fe0" }}
                   />
+
+                  {/* Apply-scope: apply this filter to a specific page no. only */}
+                  <div
+                    style={{
+                      marginTop: 10,
+                      paddingTop: 10,
+                      borderTop: "1px solid rgba(143,127,224,0.2)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "#57536b",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Apply Filter To:
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                      {[
+                        { id: "photo", label: "This Photo" },
+                        { id: "all", label: "All Photos" },
+                        { id: "page", label: "Specific Page" },
+                      ].map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setApplyTarget(t.id)}
+                          style={{
+                            padding: "5px 12px",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            borderRadius: "999px",
+                            border: applyTarget === t.id
+                              ? "2px solid #8f7fe0"
+                              : "1px solid rgba(0,0,0,0.12)",
+                            background:
+                              applyTarget === t.id
+                                ? "rgba(143, 127, 224, 0.15)"
+                                : "rgba(0,0,0,0.04)",
+                            color:
+                              applyTarget === t.id ? "#6f5ec7" : "#57536b",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {applyTarget === "page" && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          marginTop: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "#57536b" }}>
+                          Page No.:
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={Math.max(1, totalPages)}
+                          value={applyPage}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (!Number.isNaN(v)) {
+                              setApplyPage(
+                                Math.max(1, Math.min(Math.max(1, totalPages), v)),
+                              );
+                            }
+                          }}
+                          style={{
+                            width: 64,
+                            padding: "5px 8px",
+                            borderRadius: "8px",
+                            border: "1.5px solid rgba(143,127,224,0.3)",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#3d3856",
+                            outline: "none",
+                          }}
+                        />
+                        <span style={{ fontSize: 11.5, color: "#8b87a0" }}>
+                          of {Math.max(1, totalPages)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            typeof onApplyFilterToPage === "function" &&
+                            onApplyFilterToPage(
+                              applyPage,
+                              activeFilter,
+                              filterIntensity,
+                            )
+                          }
+                          style={{
+                            marginLeft: "auto",
+                            padding: "6px 12px",
+                            borderRadius: "10px",
+                            border: "none",
+                            background: "#8f7fe0",
+                            color: "#ffffff",
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                          title={`Apply this filter and intensity to every photo on page ${applyPage}`}
+                        >
+                          Apply to Page {applyPage}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

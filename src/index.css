@@ -161,6 +161,11 @@ h1, h2, h3, h4, .heading {
     align-items: start;
     height: calc(100vh - 120px);
   }
+
+  /* When the settings drawer is closed, the canvas takes the remaining space */
+  .editor-workspace-layout.drawer-closed {
+    grid-template-columns: auto 1fr;
+  }
 }
 
 /* Slim Tool Rail (Far Left) */

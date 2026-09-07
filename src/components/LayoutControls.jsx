@@ -7,6 +7,10 @@ export default function LayoutControls({
   onToggleCutGuides,
   cutGuideStyle,
   onChangeCutGuideStyle,
+  cutGuideColor,
+  onChangeCutGuideColor,
+  cutGuideOpacity,
+  onChangeCutGuideOpacity,
   marginIn,
   onChangeMargin,
   gutterIn,
@@ -64,6 +68,83 @@ export default function LayoutControls({
                   {style.label}
                 </button>
               ))}
+            </div>
+          )}
+
+          {showCutGuides && (
+            <div
+              style={{
+                background: "rgba(143, 127, 224, 0.06)",
+                padding: "10px 12px",
+                borderRadius: "12px",
+                marginTop: "10px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              {/* Guide Color */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#57536b" }}>
+                  Guide Color:
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {["#b0b0be", "#3d3856", "#ff6b8a", "#8f7fe0", "#000000"].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => onChangeCutGuideColor(c)}
+                      title={c}
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: "50%",
+                        border:
+                          cutGuideColor === c
+                            ? "2px solid #8f7fe0"
+                            : "1px solid rgba(0,0,0,0.15)",
+                        background: c,
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={cutGuideColor}
+                    onChange={(e) => onChangeCutGuideColor(e.target.value)}
+                    title="Custom guide color"
+                    style={{
+                      width: 26,
+                      height: 22,
+                      border: "1px solid rgba(0,0,0,0.15)",
+                      borderRadius: 6,
+                      background: "transparent",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Guide Opacity */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, color: "#57536b", marginBottom: 4 }}>
+                  <span>Guide Opacity:</span>
+                  <span>{Math.round(cutGuideOpacity * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={Math.round(cutGuideOpacity * 100)}
+                  onChange={(e) =>
+                    onChangeCutGuideOpacity(parseInt(e.target.value, 10) / 100)
+                  }
+                  style={{ width: "100%", accentColor: "#8f7fe0" }}
+                />
+              </div>
             </div>
           )}
         </div>
