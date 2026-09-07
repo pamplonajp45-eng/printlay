@@ -1,5 +1,6 @@
 import React from "react";
-import { Scissors, Sliders, Palette, Tag, Gauge } from "lucide-react";
+import { Scissors, Sliders, Tag, Gauge } from "lucide-react";
+import PageLabelControls from "./PageLabelControls";
 
 export default function LayoutControls({
   showCutGuides,
@@ -16,6 +17,8 @@ export default function LayoutControls({
   onChangeFrameBgColor,
   showSequenceLabels,
   onToggleSequenceLabels,
+  pageLabel,
+  onChangePageLabel,
 }) {
   return (
     <div className="glass-card" style={{ padding: "20px", marginBottom: "20px" }}>
@@ -154,6 +157,12 @@ export default function LayoutControls({
           </label>
 
         </div>
+
+        {/* Page Label: tracking / waybill note in margin area */}
+        <PageLabelControls
+          pageLabel={pageLabel}
+          onChangePageLabel={onChangePageLabel}
+        />
 
       </div>
     </div>

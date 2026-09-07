@@ -61,6 +61,8 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     showCutGuides = true,
     cutGuideStyle = "dashed",
     showSequenceLabels = false,
+    pageLabel = null,
+    pageLabelOverrides = {},
     bgColor = "#ffffff",
   } = options;
 
@@ -144,9 +146,22 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
       if (showSequenceLabels) {
         const itemNumber = s * perSheet + i + 1;
         const photoName = metaSlice[i]?.name || `#${itemNumber}`;
-        drawSequenceLabel(ctx, x, y, photoName, dpi);
+        drawSequenceLabel(ctx, x, y, photoWpx, photoHpx, photoName, dpi);
       }
     });
+
+    // Draw optional page label (e.g. tracking / waybill note) in the margin area.
+    // A per-page override (if any) replaces the default text for this sheet only.
+    let pageLabelBounds = null;
+    let pageLabelText = "";
+    const pageOverride = pageLabelOverrides ? pageLabelOverrides[s] : null;
+    const resolvedLabel = pageOverride
+      ? { ...pageLabel, ...pageOverride, position: "bottom-right" }
+      : { ...pageLabel, position: "bottom-right" };
+    if (resolvedLabel && resolvedLabel.enabled && resolvedLabel.text?.trim()) {
+      pageLabelBounds = drawPageLabel(ctx, resolvedLabel, sheetWpx, sheetHpx, marginPx, dpi);
+      pageLabelText = resolvedLabel.text;
+    }
 
     sheets.push({
       canvas: sheetCanvas,
@@ -158,6 +173,8 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
       sheetHpx,
       photosCount: sheetSlice.length,
       layoutCells,
+      pageLabelBounds,
+      pageLabelText,
     });
   }
 
@@ -226,4 +243,62 @@ function drawSequenceLabel(ctx, x, y, w, h, text, dpi) {
   ctx.textBaseline = "top";
   ctx.fillText(text, x + w / 2, y + h + 2);
   ctx.restore();
+}
+
+/**
+ * Draws a page-level label (e.g. tracking number / waybill note) into the
+ * page margin area. Position can be a corner or centered edge:
+ *   bottom-left | bottom-center | bottom-right | top-left | top-center | top-right
+ */
+function drawPageLabel(ctx, pageLabel, sheetWpx, sheetHpx, marginPx, dpi) {
+  const {
+    text,
+    position = "bottom-right",
+    fontSize = 9,
+    color = "#3d3856",
+  } = pageLabel;
+
+  ctx.save();
+
+  const fontSizePx = Math.max(8, Math.round((fontSize / 72) * dpi));
+  ctx.font = `600 ${fontSizePx}px Inter, sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textBaseline = "bottom";
+
+  const isTop = position.startsWith("top");
+  const isCenter = position.endsWith("center");
+  const isRight = position.endsWith("right");
+
+  ctx.textAlign = isCenter ? "center" : isRight ? "right" : "left";
+
+  const px = isCenter
+    ? sheetWpx / 2
+    : isRight
+      ? sheetWpx - marginPx
+      : marginPx;
+  const py = isTop
+    ? marginPx + fontSizePx
+    : sheetHpx - marginPx;
+
+  ctx.fillText(text, px, py);
+
+  // Compute the bounding box of the drawn text (in canvas px) so the preview
+  // can render a clickable/editable overlay on top of it.
+  const textW = ctx.measureText(text).width;
+  const pad = Math.round(dpi * 0.03);
+  const left = isCenter
+    ? px - textW / 2
+    : isRight
+      ? px - textW
+      : px;
+  const top = py - fontSizePx;
+
+  ctx.restore();
+
+  return {
+    x: Math.round(left - pad),
+    y: Math.round(top - pad),
+    w: Math.round(textW + pad * 2),
+    h: Math.round(fontSizePx + pad * 2),
+  };
 }

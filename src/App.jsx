@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Header from "./components/Header";
 import UploadZone from "./components/UploadZone";
 import PhotoThumbGrid from "./components/PhotoThumbGrid";
@@ -6,7 +6,6 @@ import PresetPicker from "./components/PresetPicker";
 import SheetPicker from "./components/SheetPicker";
 import LayoutControls from "./components/LayoutControls";
 import SheetPreview from "./components/SheetPreview";
-import ExportBar from "./components/ExportBar";
 import CropModal from "./components/CropModal";
 import GuideModal from "./components/GuideModal";
 import TextControls from "./components/TextControls";
@@ -15,6 +14,12 @@ import { Heart, Upload, Image, FileText, Sliders, X, Type } from "lucide-react";
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
 import { cropToCanvas, loadImage } from "./lib/cropEngine";
 import { generateSheetCanvases, calculateGridInfo } from "./lib/layoutEngine";
+import {
+  exportToPdf,
+  exportSheetPng,
+  exportAllPngsZip,
+  triggerBrowserPrint,
+} from "./lib/exportEngine";
 import { saveSession, loadSession, clearSessionStorage } from "./lib/storage";
 
 export default function App() {
@@ -39,8 +44,11 @@ export default function App() {
   const [dpi, setDpi] = useState(300);
   const [frameBgColor, setFrameBgColor] = useState("#ffffff");
   const [showSequenceLabels, setShowSequenceLabels] = useState(false);
+  const [pageLabel, setPageLabel] = useState({ text: "", position: "bottom-right", fontSize: 9, enabled: false });
+  const [pageLabels, setPageLabels] = useState({});
 
   const [sheets, setSheets] = useState([]);
+  const generationTokenRef = useRef(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeCropPhoto, setActiveCropPhoto] = useState(null);
   const [showGuideModal, setShowGuideModal] = useState(false);
@@ -115,28 +123,43 @@ export default function App() {
         if (session.frameBgColor) setFrameBgColor(session.frameBgColor);
         if (session.showSequenceLabels !== undefined)
           setShowSequenceLabels(session.showSequenceLabels);
+        if (session.pageLabel)
+          setPageLabel({
+            text: "",
+            position: "bottom-right",
+            fontSize: 9,
+            enabled: false,
+            ...session.pageLabel,
+          });
+        if (session.pageLabels) setPageLabels(session.pageLabels);
       }
     }
     restoreSession();
   }, []);
 
-  // Save session when relevant state updates
+  // Save session when relevant state updates (debounced — writing base64 data
+  // URLs to IndexedDB on every drag frame is wasteful)
   useEffect(() => {
-    saveSession({
-      photos,
-      photoPresetId,
-      sheetPresetId,
-      photoOrientation,
-      sheetOrientation,
-      customPhotoSize,
-      showCutGuides,
-      cutGuideStyle,
-      marginIn,
-      gutterIn,
-      dpi,
-      frameBgColor,
-      showSequenceLabels,
-    });
+    const timer = setTimeout(() => {
+      saveSession({
+        photos,
+        photoPresetId,
+        sheetPresetId,
+        photoOrientation,
+        sheetOrientation,
+        customPhotoSize,
+        showCutGuides,
+        cutGuideStyle,
+        marginIn,
+        gutterIn,
+        dpi,
+        frameBgColor,
+        showSequenceLabels,
+        pageLabel,
+        pageLabels,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
   }, [
     photos,
     photoPresetId,
@@ -151,6 +174,8 @@ export default function App() {
     dpi,
     frameBgColor,
     showSequenceLabels,
+    pageLabel,
+    pageLabels,
   ]);
 
   // Layout Generation Logic
@@ -160,10 +185,14 @@ export default function App() {
       return;
     }
 
+    // Token guard: discard results of stale generations when a newer one starts
+    const token = ++generationTokenRef.current;
+
     setIsGenerating(true);
 
     // Yield frame to allow React to paint loading spinner on screen
     await new Promise((resolve) => setTimeout(resolve, 50));
+    if (token !== generationTokenRef.current) return;
 
     try {
       // 1. Crop all photos to canvas using cropEngine with event-loop yielding
@@ -202,6 +231,7 @@ export default function App() {
         // Yield main thread every 4 photos
         if (i % 4 === 0) {
           await new Promise((resolve) => setTimeout(resolve, 0));
+          if (token !== generationTokenRef.current) return;
         }
       }
 
@@ -218,15 +248,20 @@ export default function App() {
           showCutGuides,
           cutGuideStyle,
           showSequenceLabels,
+          pageLabel,
+          pageLabelOverrides: pageLabels,
         },
       );
 
+      if (token !== generationTokenRef.current) return;
       setSheets(generatedSheets);
     } catch (err) {
       console.error("Layout generation failed:", err);
+    } finally {
+      if (token === generationTokenRef.current) {
+        setIsGenerating(false);
+      }
     }
-
-    setIsGenerating(false);
   }, [
     photos,
     activePhotoPreset,
@@ -238,29 +273,24 @@ export default function App() {
     cutGuideStyle,
     frameBgColor,
     showSequenceLabels,
+    pageLabel,
+    pageLabels,
     textPreview,
   ]);
 
-  // Auto re-generate layout when photos or key settings change
+  // Auto re-generate layout when photos or key settings change (debounced so
+  // drag-panning and text typing coalesce into one regeneration instead of one
+  // full re-crop per mousemove/keystroke)
   useEffect(() => {
-    if (photos.length > 0) {
-      handleGenerateLayout();
-    } else {
-      setSheets([]);
-    }
-  }, [
-    photos,
-    activePhotoPreset,
-    activeSheetPreset,
-    showCutGuides,
-    cutGuideStyle,
-    marginIn,
-    gutterIn,
-    dpi,
-    frameBgColor,
-    showSequenceLabels,
-    textPreview,
-  ]);
+    const timer = setTimeout(() => {
+      if (photos.length > 0) {
+        handleGenerateLayout();
+      } else {
+        setSheets([]);
+      }
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [handleGenerateLayout, photos.length]);
 
   // Handlers for Photo Management
   const handlePhotosAdded = (newPhotos) => {
@@ -310,6 +340,34 @@ export default function App() {
   const handleRemoveTextFromAll = useCallback(() => {
     setPhotos((prev) => prev.map((p) => ({ ...p, textOverlays: [] })));
   }, []);
+
+  // Per-page label (waybill) override handler
+  const handleUpdatePageLabel = useCallback((sheetIndex, text) => {
+    setPageLabels((prev) => ({ ...prev, [String(sheetIndex)]: { text } }));
+  }, []);
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!sheets || sheets.length === 0) return;
+    await exportToPdf(
+      sheets,
+      activeSheetPreset,
+      `printlay-layout-${Date.now()}.pdf`,
+    );
+  }, [sheets, activeSheetPreset]);
+
+  const handleDownloadZip = useCallback(async () => {
+    if (!sheets || sheets.length === 0) return;
+    if (sheets.length === 1) {
+      exportSheetPng(sheets[0].canvas, 0, "printlay-sheet-1.png");
+    } else {
+      await exportAllPngsZip(sheets, `printlay-sheets-${Date.now()}.zip`);
+    }
+  }, [sheets]);
+
+  const handlePrint = useCallback(async () => {
+    if (!sheets || sheets.length === 0) return;
+    await triggerBrowserPrint(sheets, activeSheetPreset);
+  }, [sheets, activeSheetPreset]);
 
   const handleUpdatePhotoCrop = useCallback((photoId, newCropSettings) => {
     setPhotos((prev) =>
@@ -406,6 +464,12 @@ export default function App() {
           }
           onClearSession={handleClearSession}
           onOpenInfo={() => setShowGuideModal(true)}
+          sheets={sheets}
+          isGenerating={isGenerating}
+          onGenerateLayout={handleGenerateLayout}
+          onDownloadPdf={handleDownloadPdf}
+          onDownloadZip={handleDownloadZip}
+          onPrint={handlePrint}
         />
 
         {/* Canva-Style Editor Workspace Layout */}
@@ -565,6 +629,8 @@ export default function App() {
                     onChangeFrameBgColor={setFrameBgColor}
                     showSequenceLabels={showSequenceLabels}
                     onToggleSequenceLabels={setShowSequenceLabels}
+                    pageLabel={pageLabel}
+                    onChangePageLabel={setPageLabel}
                   />
                 )}
 
@@ -591,14 +657,7 @@ export default function App() {
               photoCount={photos.length}
               onUpdatePhotoCrop={handleUpdatePhotoCrop}
               onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
-            />
-
-            <ExportBar
-              sheets={sheets}
-              sheetPreset={activeSheetPreset}
-              photoCount={photos.length}
-              onGenerateLayout={handleGenerateLayout}
-              isGenerating={isGenerating}
+              onUpdatePageLabel={handleUpdatePageLabel}
             />
           </main>
         </div>

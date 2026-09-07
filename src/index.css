@@ -140,6 +140,10 @@ h1, h2, h3, h4, .heading {
 .theme-toggle:hover {
   transform: translateY(-1px);
 }
+.share-dropdown {
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
 
 /* Canva-Style Editor Workspace Layout */
 .editor-workspace-layout {

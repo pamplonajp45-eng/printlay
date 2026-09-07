@@ -54,6 +54,14 @@ export async function saveSession(state) {
       dpi: state.dpi || 300,
       frameBgColor: state.frameBgColor || "#ffffff",
       showSequenceLabels: state.showSequenceLabels || false,
+      pageLabel: {
+        text: "",
+        position: "bottom-right",
+        fontSize: 9,
+        enabled: false,
+        ...(state.pageLabel || {}),
+      },
+      pageLabels: state.pageLabels || {},
       timestamp: Date.now(),
     };
 
