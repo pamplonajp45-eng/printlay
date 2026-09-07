@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Header from "./components/Header";
 import UploadZone from "./components/UploadZone";
 import PhotoThumbGrid from "./components/PhotoThumbGrid";
@@ -9,7 +9,8 @@ import SheetPreview from "./components/SheetPreview";
 import ExportBar from "./components/ExportBar";
 import CropModal from "./components/CropModal";
 import GuideModal from "./components/GuideModal";
-import { Heart, Upload, Image, FileText, Sliders, X } from "lucide-react";
+import TextControls from "./components/TextControls";
+import { Heart, Upload, Image, FileText, Sliders, X, Type } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
 import { cropToCanvas, loadImage } from "./lib/cropEngine";
@@ -17,6 +18,9 @@ import { generateSheetCanvases, calculateGridInfo } from "./lib/layoutEngine";
 import { saveSession, loadSession, clearSessionStorage } from "./lib/storage";
 
 export default function App() {
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("printlay-theme") || "light",
+  );
   const [photos, setPhotos] = useState([]);
   const [photoPresetId, setPhotoPresetId] = useState("polaroidClassic");
   const [sheetPresetId, setSheetPresetId] = useState("a4");
@@ -37,6 +41,15 @@ export default function App() {
   const [activeCropPhoto, setActiveCropPhoto] = useState(null);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [activeTab, setActiveTab] = useState("photoPreset"); // "photos" | "photoPreset" | "sheetPreset" | "layout" | null
+  const [textPreview, setTextPreview] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem("printlay-theme", theme);
+    const favicon = document.querySelector('link[rel="icon"]');
+    if (favicon) {
+      favicon.href = theme === "dark" ? "/printlay-logo-dark.svg" : "/printlay-logo.svg";
+    }
+  }, [theme]);
 
   // Active presets lookup with orientation applied
   const activePhotoPreset = useMemo(() => {
@@ -141,9 +154,18 @@ export default function App() {
 
     try {
       // 1. Crop all photos to canvas using cropEngine with event-loop yielding
+      const previewPhotos = photos.map((photo) => {
+        if (!textPreview || (textPreview.targetMode !== "all" && textPreview.targetMode !== photo.id)) {
+          return photo;
+        }
+        return {
+          ...photo,
+          textOverlays: textPreview.overlay?.text?.trim() ? [textPreview.overlay] : [],
+        };
+      });
       const croppedCanvases = [];
-      for (let i = 0; i < photos.length; i++) {
-        const photo = photos[i];
+      for (let i = 0; i < previewPhotos.length; i++) {
+        const photo = previewPhotos[i];
         const loadedImg = await loadImage(photo.url || photo.dataUrl);
         const canvas = cropToCanvas(loadedImg, activePhotoPreset, {
           dpi,
@@ -151,6 +173,7 @@ export default function App() {
           filter: photo.filter || "none",
           filterIntensity: typeof photo.filterIntensity === "number" ? photo.filterIntensity : 1,
           frameBgColor,
+          textOverlays: photo.textOverlays || [],
         });
         croppedCanvases.push(canvas);
 
@@ -165,7 +188,7 @@ export default function App() {
         croppedCanvases,
         activePhotoPreset,
         activeSheetPreset,
-        photos,
+        previewPhotos,
         {
           dpi,
           marginIn,
@@ -193,6 +216,7 @@ export default function App() {
     cutGuideStyle,
     frameBgColor,
     showSequenceLabels,
+    textPreview,
   ]);
 
   // Auto re-generate layout when photos or key settings change
@@ -202,7 +226,7 @@ export default function App() {
     } else {
       setSheets([]);
     }
-  }, [photos, activePhotoPreset, activeSheetPreset, showCutGuides, cutGuideStyle, marginIn, gutterIn, dpi, frameBgColor, showSequenceLabels]);
+  }, [photos, activePhotoPreset, activeSheetPreset, showCutGuides, cutGuideStyle, marginIn, gutterIn, dpi, frameBgColor, showSequenceLabels, textPreview]);
 
   // Handlers for Photo Management
   const handlePhotosAdded = (newPhotos) => {
@@ -238,6 +262,25 @@ export default function App() {
     }
   };
 
+  // Text Overlay Handlers
+  const handleUpdatePhotoText = useCallback((photoId, textOverlays) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === photoId ? { ...p, textOverlays } : p))
+    );
+  }, []);
+
+  const handleApplyTextToAll = useCallback((textOverlays) => {
+    setPhotos((prev) =>
+      prev.map((p) => ({ ...p, textOverlays }))
+    );
+  }, []);
+
+  const handleRemoveTextFromAll = useCallback(() => {
+    setPhotos((prev) =>
+      prev.map((p) => ({ ...p, textOverlays: [] }))
+    );
+  }, []);
+
   const handleUpdatePhotoCrop = useCallback((photoId, newCropSettings) => {
     setPhotos((prev) =>
       prev.map((p) => (p.id === photoId ? { ...p, cropSettings: newCropSettings } : p))
@@ -269,7 +312,7 @@ export default function App() {
   }, []);
 
   // Crop Modal Handlers
-  const handleSaveCrop = (newSettings, newFilter, newIntensity) => {
+  const handleSaveCrop = (newSettings, newFilter, newIntensity, newTextOverlays) => {
     if (!activeCropPhoto) return;
     setPhotos((prev) =>
       prev.map((p) =>
@@ -279,6 +322,7 @@ export default function App() {
               cropSettings: newSettings,
               filter: newFilter !== undefined ? newFilter : p.filter,
               filterIntensity: newIntensity !== undefined ? newIntensity : (p.filterIntensity ?? 1),
+              textOverlays: newTextOverlays !== undefined ? newTextOverlays : (p.textOverlays || []),
             }
           : p
       )
@@ -299,12 +343,14 @@ export default function App() {
   };
 
   return (
-    <div className="app-bg-wrapper">
+    <div className={`app-bg-wrapper theme-${theme}`} data-theme={theme}>
       <div className="app-main-container">
         
         {/* Header */}
         <Header
           photoCount={photos.length}
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => current === "light" ? "dark" : "light")}
           onClearSession={handleClearSession}
           onOpenInfo={() => setShowGuideModal(true)}
         />
@@ -357,6 +403,21 @@ export default function App() {
               <span className="tool-rail-label">Guides</span>
               <span className="tool-rail-badge">{dpi} DPI</span>
             </button>
+
+            <button
+              type="button"
+              className={`tool-rail-button ${activeTab === "text" ? "active" : ""}`}
+              onClick={() => setActiveTab(activeTab === "text" ? null : "text")}
+              title="Add Text Overlays to Photos"
+            >
+              <Type size={19} />
+              <span className="tool-rail-label">Text</span>
+              <span className="tool-rail-badge">
+                {photos.filter(p => p.textOverlays?.some(o => o.text?.trim())).length > 0
+                  ? `${photos.filter(p => p.textOverlays?.some(o => o.text?.trim())).length} with text`
+                  : "Add text"}
+              </span>
+            </button>
           </nav>
 
           {/* Expandable Settings Sub-Sidebar Drawer */}
@@ -368,6 +429,7 @@ export default function App() {
                   {activeTab === "photoPreset" && "Target Photo Print Size"}
                   {activeTab === "sheetPreset" && "Output Paper / Sheet Size"}
                   {activeTab === "layout" && "Layout & Cut-Guide Settings"}
+                  {activeTab === "text" && "Freeform Text Editor"}
                 </h4>
                 <button
                   type="button"
@@ -436,6 +498,16 @@ export default function App() {
                     onToggleSequenceLabels={setShowSequenceLabels}
                   />
                 )}
+
+                {activeTab === "text" && (
+                  <TextControls
+                    photos={photos}
+                    onUpdatePhotoText={handleUpdatePhotoText}
+                    onApplyTextToAll={handleApplyTextToAll}
+                    onRemoveTextFromAll={handleRemoveTextFromAll}
+                    onPreviewChange={setTextPreview}
+                  />
+                )}
               </div>
             </aside>
           )}
@@ -495,6 +567,7 @@ export default function App() {
           photoPreset={activePhotoPreset}
           onSave={handleSaveCrop}
           onApplyToAll={handleApplyToAllCrops}
+          onApplyTextToAll={handleApplyTextToAll}
           onClose={() => setActiveCropPhoto(null)}
         />
       )}

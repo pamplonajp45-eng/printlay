@@ -1,6 +1,18 @@
 import React, { useState } from "react";
-import { Download, FileDown, Printer, Archive, Loader2, Sparkles } from "lucide-react";
-import { exportToPdf, exportSheetPng, exportAllPngsZip, triggerBrowserPrint } from "../lib/exportEngine";
+import {
+  Download,
+  FileDown,
+  Printer,
+  Archive,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
+import {
+  exportToPdf,
+  exportSheetPng,
+  exportAllPngsZip,
+  triggerBrowserPrint,
+} from "../lib/exportEngine";
 
 export default function ExportBar({
   sheets,
@@ -24,9 +36,14 @@ export default function ExportBar({
     await new Promise((r) => setTimeout(r, 50));
 
     try {
-      await exportToPdf(sheets, sheetPreset, `printlay-layout-${Date.now()}.pdf`, (curr, tot) => {
-        setPdfProgress({ current: curr, total: tot });
-      });
+      await exportToPdf(
+        sheets,
+        sheetPreset,
+        `printlay-layout-${Date.now()}.pdf`,
+        (curr, tot) => {
+          setPdfProgress({ current: curr, total: tot });
+        },
+      );
     } catch (err) {
       console.error("PDF export failed:", err);
     }
@@ -44,9 +61,13 @@ export default function ExportBar({
       if (sheets.length === 1) {
         exportSheetPng(sheets[0].canvas, 0, `printlay-sheet-1.png`);
       } else {
-        await exportAllPngsZip(sheets, `printlay-sheets-${Date.now()}.zip`, (curr, tot) => {
-          setZipProgress({ current: curr, total: tot });
-        });
+        await exportAllPngsZip(
+          sheets,
+          `printlay-sheets-${Date.now()}.zip`,
+          (curr, tot) => {
+            setZipProgress({ current: curr, total: tot });
+          },
+        );
       }
     } catch (err) {
       console.error("ZIP/PNG export failed:", err);
@@ -77,11 +98,21 @@ export default function ExportBar({
         boxShadow: "0 12px 40px rgba(99, 91, 166, 0.25)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "14px" }}>
-        
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "14px",
+        }}
+      >
         {/* Left side info */}
         <div>
-          <h4 className="heading" style={{ margin: 0, fontSize: 16, color: "#3d3856" }}>
+          <h4
+            className="heading"
+            style={{ margin: 0, fontSize: 16, color: "#3d3856" }}
+          >
             {sheets.length > 0
               ? `${sheets.length} Print-Ready Sheet${sheets.length > 1 ? "s" : ""} Generated`
               : `${photoCount} Photo${photoCount === 1 ? "" : "s"} Ready`}
@@ -94,8 +125,14 @@ export default function ExportBar({
         </div>
 
         {/* Action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            flexWrap: "wrap",
+          }}
+        >
           {/* Main Generate / Re-generate Button */}
           <button
             onClick={onGenerateLayout}
@@ -117,8 +154,9 @@ export default function ExportBar({
               </>
             ) : (
               <>
-                <Sparkles size={16} />
-                {sheets.length > 0 ? "Re-Generate Layout" : `Generate Layout (${photoCount})`}
+                {sheets.length > 0
+                  ? "Re-Generate Layout"
+                  : `Generate Layout (${photoCount})`}
               </>
             )}
           </button>
@@ -130,10 +168,20 @@ export default function ExportBar({
                 onClick={handleDownloadPdf}
                 disabled={isExportingPdf}
                 className="bubble-button-accent"
-                style={{ padding: "12px 20px", fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}
+                style={{
+                  padding: "12px 20px",
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
                 title="Download print-ready multi-page PDF"
               >
-                {isExportingPdf ? <Loader2 className="spinner" size={16} /> : <FileDown size={16} />}
+                {isExportingPdf ? (
+                  <Loader2 className="spinner" size={16} />
+                ) : (
+                  <FileDown size={16} />
+                )}
                 {isExportingPdf
                   ? `Building PDF (${pdfProgress.current}/${pdfProgress.total})...`
                   : "Download PDF"}
@@ -144,15 +192,31 @@ export default function ExportBar({
                 onClick={handleDownloadZip}
                 disabled={isExportingZip}
                 className="bubble-button-secondary"
-                style={{ padding: "12px 18px", fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}
-                title={sheets.length === 1 ? "Download PNG Sheet" : "Download ZIP of all PNG sheets"}
+                style={{
+                  padding: "12px 18px",
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+                title={
+                  sheets.length === 1
+                    ? "Download PNG Sheet"
+                    : "Download ZIP of all PNG sheets"
+                }
               >
-                {isExportingZip ? <Loader2 className="spinner" size={16} /> : sheets.length === 1 ? <Download size={16} /> : <Archive size={16} />}
+                {isExportingZip ? (
+                  <Loader2 className="spinner" size={16} />
+                ) : sheets.length === 1 ? (
+                  <Download size={16} />
+                ) : (
+                  <Archive size={16} />
+                )}
                 {isExportingZip
                   ? `Building ZIP (${zipProgress.current}/${zipProgress.total})...`
                   : sheets.length === 1
-                  ? "Download PNG"
-                  : "Download PNGs (ZIP)"}
+                    ? "Download PNG"
+                    : "Download PNGs (ZIP)"}
               </button>
 
               {/* Native Print Button */}
@@ -160,17 +224,25 @@ export default function ExportBar({
                 onClick={handlePrint}
                 disabled={isPreparingPrint}
                 className="bubble-button-secondary"
-                style={{ padding: "12px 18px", fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}
+                style={{
+                  padding: "12px 18px",
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
                 title="Open browser print dialog with 100% scale CSS sizing"
               >
-                {isPreparingPrint ? <Loader2 className="spinner" size={16} /> : <Printer size={16} />}
+                {isPreparingPrint ? (
+                  <Loader2 className="spinner" size={16} />
+                ) : (
+                  <Printer size={16} />
+                )}
                 {isPreparingPrint ? "Preparing..." : "Print"}
               </button>
             </>
           )}
-
         </div>
-
       </div>
     </div>
   );

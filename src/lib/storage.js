@@ -35,6 +35,7 @@ export async function saveSession(state) {
           cropSettings: p.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
           filter: p.filter || "none",
           filterIntensity: typeof p.filterIntensity === "number" ? p.filterIntensity : 1,
+          textOverlays: p.textOverlays || [],
         };
       })
     );
@@ -78,6 +79,7 @@ export async function loadSession() {
       cropSettings: p.cropSettings || { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
       filter: p.filter || "none",
       filterIntensity: typeof p.filterIntensity === "number" ? p.filterIntensity : 1,
+      textOverlays: p.textOverlays || [],
     }));
 
     return {

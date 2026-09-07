@@ -1,27 +1,22 @@
-import React from "react";
-import { Sparkles, Trash2, HelpCircle, ShieldCheck, Printer } from "lucide-react";
+import { Trash2, HelpCircle, ShieldCheck, Moon, Sun } from "lucide-react";
 
-export default function Header({ photoCount, onClearSession, onOpenInfo }) {
+export default function Header({ photoCount, onClearSession, onOpenInfo, theme, onToggleTheme }) {
   return (
     <header className="glass-card header-container" style={{ padding: "16px 24px", marginBottom: "24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
         
         {/* Brand logo & title */}
         <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <div
+          <img
+            src={theme === "dark" ? "/printlay-logo-dark.svg" : "/printlay-logo.svg"}
+            alt="PrintLay"
             style={{
-              width: 48,
-              height: 48,
-              borderRadius: 18,
-              background: "linear-gradient(135deg, #a9a0f0 0%, #8f7fe0 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 8px 20px rgba(143, 127, 224, 0.4)",
+              width: 52,
+              height: 52,
+              flexShrink: 0,
+              filter: "drop-shadow(0 6px 12px rgba(109, 95, 232, 0.22))",
             }}
-          >
-            <Sparkles size={24} color="#ffffff" />
-          </div>
+          />
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <h1 className="heading" style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#3d3856" }}>
@@ -50,6 +45,16 @@ export default function Header({ photoCount, onClearSession, onOpenInfo }) {
 
         {/* Info badges & Actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="theme-toggle"
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+            <span>{theme === "dark" ? "Light" : "Dark"}</span>
+          </button>
           <div
             style={{
               display: "flex",

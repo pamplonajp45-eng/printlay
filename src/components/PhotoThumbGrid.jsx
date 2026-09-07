@@ -1,5 +1,4 @@
-import React from "react";
-import { X, Crop, Copy, ArrowLeft, ArrowRight, Sparkles, Filter, Layers } from "lucide-react";
+import { X, Crop, Copy, ArrowLeft, ArrowRight, Sparkles, Type } from "lucide-react";
 import { PHOTO_FILTERS } from "../lib/cropEngine";
 
 export default function PhotoThumbGrid({
@@ -215,6 +214,30 @@ export default function PhotoThumbGrid({
                     title="Manual crop applied"
                   >
                     <Crop size={9} /> Crop
+                  </div>
+                )}
+
+                {/* Text overlay badge */}
+                {photo.textOverlays && photo.textOverlays.length > 0 && photo.textOverlays.some(o => o.text?.trim()) && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 6,
+                      right: 6,
+                      background: "rgba(143,127,224,0.90)",
+                      backdropFilter: "blur(4px)",
+                      color: "#ffffff",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      padding: "2px 6px",
+                      borderRadius: "999px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                    }}
+                    title="Has text overlay"
+                  >
+                    <Type size={11} /> Text
                   </div>
                 )}
               </div>

@@ -32,6 +32,7 @@ export function cropToCanvas(img, preset, options = {}) {
     filter = "none",
     filterIntensity = 1,
     frameBgColor = "#ffffff",
+    textOverlays = [],
   } = options;
 
   const targetWpx = Math.round(preset.wIn * dpi);
@@ -198,5 +199,103 @@ export function cropToCanvas(img, preset, options = {}) {
     ctx.restore();
   }
 
+  // Render freeform text overlays
+  if (textOverlays && textOverlays.length > 0) {
+    renderTextOverlays(ctx, textOverlays, targetWpx, targetHpx, dpi);
+  }
+
   return canvas;
+}
+
+/**
+ * Renders an array of text overlay objects onto the canvas.
+ * Text positions are stored as fractions (0–1) of canvas width/height.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Array} overlays - Array of text overlay config objects
+ * @param {number} canvasW - Canvas width in pixels
+ * @param {number} canvasH - Canvas height in pixels
+ * @param {number} dpi - Dots per inch for font size scaling
+ */
+function renderTextOverlays(ctx, overlays, canvasW, canvasH, dpi) {
+  overlays.forEach((overlay) => {
+    if (!overlay.text || overlay.text.trim() === "") return;
+
+    const {
+      text,
+      fontFamily = "Caveat",
+      fontSize = 12,         // pt size (1 pt = 1/72 in)
+      fontWeight = "700",
+      color = "#ffffff",
+      align = "center",
+      x = 0.5,               // fraction of canvas width
+      y = 0.85,              // fraction of canvas height
+      shadow = true,
+      bgEnabled = false,
+      bgColor = "rgba(0,0,0,0.35)",
+      bgPadding = 6,
+    } = overlay;
+
+    // Scale font from pt to px at the target DPI
+    const fontSizePx = Math.round((fontSize / 72) * dpi);
+
+    ctx.save();
+
+    ctx.font = `${fontWeight} ${fontSizePx}px "${fontFamily}", sans-serif`;
+    ctx.textAlign = align;
+    ctx.textBaseline = "middle";
+
+    const px = canvasW * x;
+    const py = canvasH * y;
+
+    const lines = text.split("\n");
+    const lineHeight = fontSizePx * 1.3;
+    const totalH = lines.length * lineHeight;
+    const startY = py - totalH / 2 + lineHeight / 2;
+
+    lines.forEach((line, i) => {
+      const ly = startY + i * lineHeight;
+
+      // Optional background pill/badge
+      if (bgEnabled) {
+        const metrics = ctx.measureText(line);
+        const tw = metrics.width;
+        const padH = bgPadding * (dpi / 96);
+        const padW = padH * 1.6;
+        let bx = px - padW;
+        if (align === "left") bx = px - padW;
+        if (align === "center") bx = px - tw / 2 - padW;
+        if (align === "right") bx = px - tw - padW;
+        const bw = tw + padW * 2;
+        const bh = fontSizePx + padH * 2;
+        const br = Math.min(bh / 2, 8 * (dpi / 96));
+
+        ctx.save();
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(bx, ly - bh / 2, bw, bh, br);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Drop shadow for readability
+      if (shadow) {
+        const shadowBlur = Math.max(2, Math.round(dpi * 0.008));
+        ctx.shadowColor = "rgba(0,0,0,0.55)";
+        ctx.shadowBlur = shadowBlur;
+        ctx.shadowOffsetX = Math.round(dpi * 0.002);
+        ctx.shadowOffsetY = Math.round(dpi * 0.002);
+      } else {
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      }
+
+      ctx.fillStyle = color;
+      ctx.fillText(line, px, ly);
+    });
+
+    ctx.restore();
+  });
 }
