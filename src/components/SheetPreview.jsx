@@ -116,6 +116,44 @@ export default function SheetPreview({
     };
 
     el.addEventListener("wheel", handleWheel, { passive: false });
+
+    // Native capture-phase mousedown pan handler. Capture on the viewport
+    // element fires BEFORE React's handlers (which listen at the root in the
+    // bubble phase), so nothing inside the sheet — photo cells, labels,
+    // stopPropagation calls — can swallow the pan gesture. Supports
+    // Space+left-drag and middle-mouse-drag.
+    const startPan = (e) => {
+      const spacePan = e.button === 0 && spaceDownRef.current;
+      const middlePan = e.button === 1;
+      if (!spacePan && !middlePan) return;
+      e.preventDefault();
+      if (middlePan) e.stopPropagation();
+
+      panStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        originX: panRef.current.x,
+        originY: panRef.current.y,
+      };
+      setIsPanning(true);
+
+      const onMove = (ev) => {
+        if (!panStartRef.current) return;
+        setPan({
+          x: panStartRef.current.originX + (ev.clientX - panStartRef.current.x),
+          y: panStartRef.current.originY + (ev.clientY - panStartRef.current.y),
+        });
+      };
+      const onUp = () => {
+        panStartRef.current = null;
+        setIsPanning(false);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    };
+    el.addEventListener("mousedown", startPan, true);
   }, []);
 
   // Space + drag panning
@@ -143,8 +181,10 @@ export default function SheetPreview({
   }, [isPanning]);
 
   const handleViewportMouseDown = (e) => {
-    // Use the ref (not state) so a mousedown landing in the same frame as the
-    // keydown can't miss the Space press.
+    // Fallback only — the primary pan path is the native capture-phase
+    // mousedown listener attached in wheelZoomRef (handles Space+drag and
+    // middle-drag). This React handler also covers the case where the native
+    // listener's element was re-created.
     if (!spaceDownRef.current) return;
     e.preventDefault();
     panStartRef.current = {
