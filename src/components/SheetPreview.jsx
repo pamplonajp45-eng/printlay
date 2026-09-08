@@ -15,15 +15,22 @@ export default function SheetPreview({
   onUpdatePhotoCrop,
   onOpenCropModal,
   onUpdatePageLabel,
+  onUpdatePageLabelPosition,
 }) {
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const [previewZoom, setPreviewZoom] = useState(1.0);
   const [draggingCell, setDraggingCell] = useState(null);
   const [hoveredCellId, setHoveredCellId] = useState(null);
   const [hoveredLabel, setHoveredLabel] = useState(false);
+  // Drag-to-reposition the page label (waybill). draggingLabel holds
+  // { startClientX, startClientY, startXFrac, startYFrac, moved }
+  const [draggingLabel, setDraggingLabel] = useState(null);
   const [editingLabel, setEditingLabel] = useState(false);
   const [editValue, setEditValue] = useState("");
   const canvasContainerRef = useRef(null);
+  // Ref to the sheet container (canvas + overlays) — used to convert drag
+  // pixel deltas into page fractions when repositioning the waybill label.
+  const sheetRef = useRef(null);
 
   const ZOOM_MIN = 0.25;
   const ZOOM_MAX = 4;
@@ -253,6 +260,57 @@ export default function SheetPreview({
     };
   }, [draggingCell, onUpdatePhotoCrop, onOpenCropModal]);
 
+  // Global mousemove/mouseup for dragging the page label (waybill) to a new
+  // position. A drag under ~4px is treated as a click and opens the text
+  // editor instead. NOTE: kept ABOVE the empty-state early return so the hook
+  // order stays consistent across renders (Rules of Hooks).
+  useEffect(() => {
+    if (!draggingLabel) return;
+
+    const handleMouseMove = (e) => {
+      e.preventDefault();
+      const el = sheetRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const dxFrac = (e.clientX - draggingLabel.startClientX) / rect.width;
+      const dyFrac = (e.clientY - draggingLabel.startClientY) / rect.height;
+      if (
+        Math.abs(e.clientX - draggingLabel.startClientX) > 4 ||
+        Math.abs(e.clientY - draggingLabel.startClientY) > 4
+      ) {
+        draggingLabel.moved = true;
+      }
+      if (typeof onUpdatePageLabelPosition === "function") {
+        onUpdatePageLabelPosition(
+          draggingLabel.startXFrac + dxFrac,
+          draggingLabel.startYFrac + dyFrac,
+        );
+      }
+    };
+
+    const handleMouseUp = () => {
+      const wasClick = !draggingLabel.moved;
+      setDraggingLabel(null);
+      // Plain click (no drag) → open the inline text editor as before
+      if (wasClick) {
+        const idx = Math.min(activeSheetIndex, (sheets?.length || 1) - 1);
+        const current = sheets?.[idx];
+        if (current) {
+          setEditValue(current.pageLabelText || "");
+          setEditingLabel(true);
+        }
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingLabel, sheets, activeSheetIndex]);
+
   if (!sheets || sheets.length === 0) {
     return (
       <div
@@ -351,6 +409,7 @@ export default function SheetPreview({
       </div>
 
       <div
+        ref={sheetRef}
         style={{
           position: "relative",
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${previewZoom})`,
@@ -422,7 +481,7 @@ export default function SheetPreview({
           );
         })}
 
-        {/* Page label overlay — same hover-only treatment */}
+        {/* Page label overlay — click to edit text, drag to reposition */}
         {labelBounds && (
           <div
             onMouseEnter={() => setHoveredLabel(true)}
@@ -431,8 +490,14 @@ export default function SheetPreview({
               if (isSpaceDown || isPanning) return; // Space = viewport pan
               e.preventDefault();
               e.stopPropagation();
-              if (draggingCell) return;
-              startEditLabel();
+              if (draggingCell || draggingLabel) return;
+              setDraggingLabel({
+                startClientX: e.clientX,
+                startClientY: e.clientY,
+                startXFrac: labelBounds.anchorX ?? 0.95,
+                startYFrac: labelBounds.anchorY ?? 0.96,
+                moved: false,
+              });
             }}
             style={{
               position: "absolute",
@@ -440,10 +505,10 @@ export default function SheetPreview({
               top: `${(labelBounds.y / sheetHpx) * 100}%`,
               width: `${(labelBounds.w / sheetWpx) * 100}%`,
               height: `${(labelBounds.h / sheetHpx) * 100}%`,
-              cursor: "text",
+              cursor: draggingLabel ? "grabbing" : "move",
               border: editingLabel
                 ? "1.5px solid #8f7fe0"
-                : hoveredLabel
+                : hoveredLabel || draggingLabel
                   ? "1.5px solid rgba(143,127,224,0.55)"
                   : "1.5px solid transparent",
               background: editingLabel
@@ -453,7 +518,7 @@ export default function SheetPreview({
               boxSizing: "border-box",
               transition: "border-color 120ms ease",
             }}
-            title="Click to edit this page's waybill / label"
+            title="Drag to move this page's waybill / label — click to edit text"
           />
         )}
       </div>

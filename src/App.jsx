@@ -359,6 +359,16 @@ export default function App() {
     setPageLabels((prev) => ({ ...prev, [String(sheetIndex)]: { text } }));
   }, []);
 
+  // Drag-to-position the page label on the preview (updates the global X/Y —
+  // same values the sliders in Page Label controls use)
+  const handleUpdatePageLabelPosition = useCallback((x, y) => {
+    setPageLabel((prev) => ({
+      ...prev,
+      x: Math.max(0, Math.min(1, x)),
+      y: Math.max(0, Math.min(1, y)),
+    }));
+  }, []);
+
   const handleDownloadPdf = useCallback(async () => {
     if (!sheets || sheets.length === 0) return;
     await exportToPdf(
@@ -712,6 +722,7 @@ export default function App() {
               onUpdatePhotoCrop={handleUpdatePhotoCrop}
               onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
               onUpdatePageLabel={handleUpdatePageLabel}
+              onUpdatePageLabelPosition={handleUpdatePageLabelPosition}
             />
           </main>
         </div>

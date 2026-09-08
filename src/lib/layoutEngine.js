@@ -548,5 +548,10 @@ function drawPageLabel(ctx, pageLabel, sheetWpx, sheetHpx, marginPx, dpi) {
     y: Math.round(top - pad),
     w: Math.round(textW + pad * 2),
     h: Math.round(fontSizePx + pad * 2),
+    // Anchor point (fraction of page) the text is drawn from — used by the
+    // preview for drag-to-reposition so a drag keeps the text anchored under
+    // the cursor regardless of text alignment.
+    anchorX: px / sheetWpx,
+    anchorY: py / sheetHpx,
   };
 }

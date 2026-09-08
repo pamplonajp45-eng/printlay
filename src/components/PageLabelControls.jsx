@@ -71,6 +71,10 @@ export default function PageLabelControls({
             gap: "8px",
           }}
         >
+          <div style={{ fontSize: 11.5, color: "#7c7893", fontStyle: "italic" }}>
+            Tip: you can also drag the label directly on the preview.
+          </div>
+
           {/* Horizontal (X) adjust bar */}
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, color: "#57536b", marginBottom: 4 }}>
