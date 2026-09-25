@@ -199,10 +199,6 @@ export default function App() {
 
     setIsGenerating(true);
 
-    // Yield frame to allow React to paint loading spinner on screen
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    if (token !== generationTokenRef.current) return;
-
     try {
       // 1. Crop all photos to canvas using cropEngine with event-loop yielding
       const previewPhotos = photos.map((photo) => {
@@ -719,6 +715,7 @@ export default function App() {
               sheetPreset={activeSheetPreset}
               gridInfo={gridInfo}
               photoCount={photos.length}
+              isGenerating={isGenerating}
               onUpdatePhotoCrop={handleUpdatePhotoCrop}
               onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
               onUpdatePageLabel={handleUpdatePageLabel}

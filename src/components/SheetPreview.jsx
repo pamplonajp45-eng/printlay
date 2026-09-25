@@ -7,11 +7,15 @@ import {
   Layers,
   Maximize,
 } from "lucide-react";
+import { SheetSkeleton } from "./Skeleton";
 
 export default function SheetPreview({
   sheets,
   sheetPreset,
+  photoPreset,
+  gridInfo,
   photoCount,
+  isGenerating = false,
   onUpdatePhotoCrop,
   onOpenCropModal,
   onUpdatePageLabel,
@@ -31,6 +35,23 @@ export default function SheetPreview({
   // Ref to the sheet container (canvas + overlays) — used to convert drag
   // pixel deltas into page fractions when repositioning the waybill label.
   const sheetRef = useRef(null);
+
+  // Only display skeleton loading effect if generation is taking noticeable time (> 180ms).
+  // If the system finishes fast, showSkeleton is never triggered.
+  const [showSkeleton, setShowSkeleton] = useState(false);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setShowSkeleton(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowSkeleton(true);
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [isGenerating]);
 
   const ZOOM_MIN = 0.25;
   const ZOOM_MAX = 4;
@@ -312,6 +333,33 @@ export default function SheetPreview({
   }, [draggingLabel, sheets, activeSheetIndex]);
 
   if (!sheets || sheets.length === 0) {
+    if (showSkeleton) {
+      return (
+        <div
+          ref={wheelZoomRef}
+          style={{
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            minHeight: "560px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            background: "#e7e6ee",
+            overflow: "hidden",
+            padding: "24px",
+          }}
+        >
+          <SheetSkeleton
+            sheetPreset={sheetPreset}
+            photoPreset={photoPreset}
+            gridInfo={gridInfo}
+            photoCount={photoCount}
+          />
+        </div>
+      );
+    }
+
     return (
       <div
         style={{
@@ -423,7 +471,16 @@ export default function SheetPreview({
           WebkitUserSelect: "none",
         }}
       >
-        <RenderedCanvasHost canvas={currentSheet.canvas} />
+        {showSkeleton ? (
+          <SheetSkeleton
+            sheetPreset={sheetPreset}
+            photoPreset={photoPreset}
+            gridInfo={gridInfo}
+            photoCount={photoCount}
+          />
+        ) : (
+          <>
+            <RenderedCanvasHost canvas={currentSheet.canvas} />
 
         {/* Cell overlays — invisible until hovered, clean solid outline (no dashed dead-state) */}
         {layoutCells.map((cell) => {
@@ -520,6 +577,8 @@ export default function SheetPreview({
             }}
             title="Drag to move this page's waybill / label — click to edit text"
           />
+        )}
+          </>
         )}
       </div>
 

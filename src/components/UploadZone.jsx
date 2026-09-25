@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Upload, Image as ImageIcon, Sparkles, Loader2, PlusCircle } from "lucide-react";
 import { isHeicFile, convertHeicToJpeg } from "../lib/heicEngine";
+import { PhotoGridSkeleton } from "./Skeleton";
 
 // Demo sample images for quick 1-click testing
 const SAMPLE_PHOTOS = [
@@ -16,11 +17,28 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
   const [dragActive, setDragActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("");
+  const [loadingCount, setLoadingCount] = useState(6);
+  // Only display skeleton loading effect if file processing is taking noticeable time (> 180ms)
+  const [showSkeleton, setShowSkeleton] = useState(false);
   const fileInputRef = useRef(null);
+
+  React.useEffect(() => {
+    if (!isLoading) {
+      setShowSkeleton(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowSkeleton(true);
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const processFiles = async (fileList) => {
     if (!fileList || fileList.length === 0) return;
 
+    setLoadingCount(fileList.length || 6);
     setIsLoading(true);
     setLoadingText(`Processing ${fileList.length} photo${fileList.length > 1 ? "s" : ""}...`);
 
@@ -80,6 +98,7 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
   };
 
   const loadSamplePhotos = async () => {
+    setLoadingCount(6);
     setIsLoading(true);
     setLoadingText("Loading 6 sample photos for demonstration...");
 
@@ -122,12 +141,26 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
           onChange={(e) => e.target.files && processFiles(e.target.files)}
         />
 
-        {isLoading ? (
-          <div style={{ padding: "20px 0" }}>
-            <Loader2 className="spinner" size={36} color="#8f7fe0" style={{ margin: "0 auto 12px" }} />
-            <p style={{ margin: 0, fontWeight: 700, color: "#3d3856", fontSize: 16 }}>
-              {loadingText}
-            </p>
+        {isLoading && showSkeleton ? (
+          <div style={{ padding: "16px 4px" }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "16px",
+                padding: "6px 16px",
+                borderRadius: "999px",
+                background: "rgba(143, 127, 224, 0.12)",
+                border: "1px solid rgba(143, 127, 224, 0.25)",
+              }}
+            >
+              <div className="skeleton-pulse-dot" />
+              <p style={{ margin: 0, fontWeight: 700, color: "var(--text-dark, #3d3856)", fontSize: 14 }}>
+                {loadingText}
+              </p>
+            </div>
+            <PhotoGridSkeleton count={Math.min(loadingCount || 6, 6)} />
           </div>
         ) : (
           <div>

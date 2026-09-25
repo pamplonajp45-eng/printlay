@@ -594,3 +594,105 @@ h1, h2, h3, h4, .heading {
   from { opacity: 0; transform: translateY(16px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ==========================================================================
+   Skeleton Screen & Shimmer Animation System
+   ========================================================================== */
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background-color: #ebe8f5;
+}
+
+.theme-dark .skeleton {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #ebe8f5 0%,
+    #ebe8f5 25%,
+    #f8f7fc 45%,
+    #ffffff 50%,
+    #f8f7fc 55%,
+    #ebe8f5 75%,
+    #ebe8f5 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.theme-dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.12) 55%,
+    rgba(255, 255, 255, 0.05) 75%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.skeleton-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #8f7fe0;
+  box-shadow: 0 0 10px rgba(143, 127, 224, 0.7);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.sheet-skeleton-card {
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(35, 31, 53, 0.14);
+  border: 1px solid rgba(143, 127, 224, 0.15);
+  transition: all 180ms ease;
+}
+
+.theme-dark .sheet-skeleton-card {
+  background: #252037;
+  border-color: rgba(194, 184, 255, 0.14);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+.skeleton-cell {
+  border: 1px dashed rgba(143, 127, 224, 0.3);
+  border-radius: 6px;
+  background: rgba(143, 127, 224, 0.04);
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.theme-dark .skeleton-cell {
+  border-color: rgba(194, 184, 255, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+}
+
