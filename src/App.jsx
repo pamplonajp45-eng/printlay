@@ -9,7 +9,7 @@ import SheetPreview from "./components/SheetPreview";
 import CropModal from "./components/CropModal";
 import GuideModal from "./components/GuideModal";
 import TextControls from "./components/TextControls";
-import { Heart, Upload, Image, FileText, Sliders, X, Type } from "lucide-react";
+import { Upload, Image, FileText, Sliders, X, Type } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
 import { cropToCanvas, loadImage } from "./lib/cropEngine";
@@ -723,33 +723,6 @@ export default function App() {
             />
           </main>
         </div>
-
-        {/* Footer credit */}
-        <footer
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-            flexWrap: "wrap",
-            marginTop: "20px",
-            padding: "8px",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: "#7c7893",
-            textAlign: "center",
-          }}
-        >
-          <span className="footer-brand">Jpdev&reg;</span>
-          <Heart size={14} color="#ff6b8a" fill="#ff6b8a" />
-          <span style={{ color: "#b0acbe", fontWeight: 500 }}>
-            Built with love by
-          </span>
-          <span className="footer-highlight">jpdev</span>
-          <span style={{ color: "#b0acbe", fontWeight: 500 }}>
-            for Acethetic Finds
-          </span>
-        </footer>
       </div>
 
       {/* Per-Photo Crop & Pan Override Modal */}

@@ -11,6 +11,8 @@ import {
   Printer,
   Loader2,
   RefreshCw,
+  Heart,
+  Info,
 } from "lucide-react";
 
 export default function Header({
@@ -28,7 +30,9 @@ export default function Header({
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [busyAction, setBusyAction] = useState(null);
+  const [infoOpen, setInfoOpen] = useState(false);
   const shareRef = useRef(null);
+  const infoRef = useRef(null);
 
   // Close the Share dropdown when clicking outside it
   useEffect(() => {
@@ -41,6 +45,18 @@ export default function Header({
     document.addEventListener("mouseup", handleClick);
     return () => document.removeEventListener("mouseup", handleClick);
   }, [shareOpen]);
+
+  // Close the info popover when clicking outside it
+  useEffect(() => {
+    if (!infoOpen) return;
+    const handleClick = (e) => {
+      if (infoRef.current && !infoRef.current.contains(e.target)) {
+        setInfoOpen(false);
+      }
+    };
+    document.addEventListener("mouseup", handleClick);
+    return () => document.removeEventListener("mouseup", handleClick);
+  }, [infoOpen]);
 
   const hasSheets = sheets && sheets.length > 0;
 
@@ -112,6 +128,84 @@ export default function Header({
               >
                 v1.0 Pro
               </span>
+
+              {/* Info "i" button — same visual size as the version badge */}
+              <div ref={infoRef} style={{ position: "relative", display: "inline-flex" }}>
+                <button
+                  type="button"
+                  onClick={() => setInfoOpen((o) => !o)}
+                  title="About PrintLay"
+                  aria-label="About PrintLay"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    border: "1.5px solid rgba(143, 127, 224, 0.55)",
+                    background: infoOpen
+                      ? "rgba(143, 127, 224, 0.18)"
+                      : "rgba(143, 127, 224, 0.08)",
+                    color: "#7c6dd8",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    padding: 0,
+                    transition: "background 150ms ease, border-color 150ms ease",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Info size={11} strokeWidth={2.2} />
+                </button>
+
+                {/* Info popover */}
+                {infoOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 10px)",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 200,
+                      background: "rgba(255, 255, 255, 0.97)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      border: "1px solid rgba(143, 127, 224, 0.22)",
+                      borderRadius: "16px",
+                      padding: "14px 20px",
+                      boxShadow: "0 8px 32px rgba(99, 91, 166, 0.16)",
+                      whiteSpace: "nowrap",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "#7c7893",
+                      animation: "fadeIn 120ms ease",
+                    }}
+                  >
+                    {/* Arrow */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: -6,
+                        left: "50%",
+                        transform: "translateX(-50%) rotate(45deg)",
+                        width: 10,
+                        height: 10,
+                        background: "rgba(255,255,255,0.97)",
+                        border: "1px solid rgba(143, 127, 224, 0.22)",
+                        borderBottom: "none",
+                        borderRight: "none",
+                      }}
+                    />
+                    <span className="footer-brand">Jpdev&reg;</span>
+                    <Heart size={13} color="#ff6b8a" fill="#ff6b8a" />
+                    <span style={{ color: "#b0acbe", fontWeight: 500 }}>Built with love by</span>
+                    <span className="footer-highlight">jpdev</span>
+                    <span style={{ color: "#b0acbe", fontWeight: 500 }}>for Acethetic Finds</span>
+                  </div>
+                )}
+              </div>
             </div>
             <p style={{ margin: 0, fontSize: 13, color: "#7c7893" }}>
               Bulk Photo Auto-Cropper & Print-Ready Sheet Layout Tool
