@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import SupportModal from "./SupportModal";
 import {
   Trash2,
   HelpCircle,
@@ -215,6 +216,7 @@ export default function Header({
 
         {/* Info badges & Actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <SupportModal />
           <button
             type="button"
             onClick={onToggleTheme}

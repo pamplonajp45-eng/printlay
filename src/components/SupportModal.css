@@ -1,0 +1,182 @@
+/* Buy me a coffee — SupportModal */
+
+.support-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-decoration-color: rgba(143, 127, 224, 0.45);
+  text-underline-offset: 3px;
+  border-radius: 6px;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.support-trigger:hover {
+  color: var(--primary-accent);
+  text-decoration-color: var(--primary-accent);
+}
+
+.support-trigger:focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
+}
+
+.support-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(61, 56, 86, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 16px;
+  animation: supportFadeIn 200ms ease-out;
+}
+
+.support-card {
+  position: relative;
+  width: min(360px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px 24px 24px;
+  border-radius: var(--card-radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: supportScaleIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.support-card:focus {
+  outline: none;
+}
+
+.support-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.support-close:hover {
+  background: rgba(143, 127, 224, 0.12);
+  color: var(--text-dark);
+}
+
+.support-close:focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
+}
+
+.support-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--primary-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.support-title {
+  margin: 0 0 6px;
+  font-family: "Baloo 2", "Nunito", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.support-message {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 280px;
+}
+
+.support-qr {
+  display: block;
+  width: min(280px, 76vw);
+  height: auto;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 10px;
+  box-shadow: 0 4px 20px rgba(99, 91, 166, 0.15);
+}
+
+.support-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  border-radius: 6px;
+  transition: color 0.2s ease;
+}
+
+.support-download:hover {
+  color: var(--primary-accent-hover);
+}
+
+.support-download:focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
+}
+
+@keyframes supportFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes supportScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .support-card {
+    padding: 24px 16px 20px;
+  }
+
+  .support-qr {
+    width: min(260px, 80vw);
+  }
+}
