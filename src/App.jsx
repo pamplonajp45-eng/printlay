@@ -101,6 +101,18 @@ export default function App() {
     });
   }, [activePhotoPreset, activeSheetPreset, dpi, marginIn, gutterIn]);
 
+  // Photos that fit on one page (used for layout slicing, page deletion, filters, etc.).
+  // For continuous sheets perSheet is "Unlimited", so compute it from rows.
+  const photosPerPage = useMemo(() => {
+    if (typeof gridInfo.perSheet === "number" && gridInfo.perSheet > 0) {
+      return gridInfo.perSheet;
+    }
+    const cols = gridInfo.cols || 1;
+    return cols * Math.max(1, Math.ceil(photos.length / cols));
+  }, [gridInfo, photos.length]);
+
+  const totalPages = Math.max(1, Math.ceil(photos.length / photosPerPage));
+
   // Load session from IndexedDB on initial mount
   useEffect(() => {
     async function restoreSession() {
@@ -306,9 +318,51 @@ export default function App() {
     setPhotos((prev) => [...prev, ...newPhotos]);
   };
 
-  const handleRemovePhoto = (id) => {
-    setPhotos((prev) => prev.filter((p) => p.id !== id));
-  };
+  const handleRemovePhoto = useCallback((id, index) => {
+    setPhotos((prev) => {
+      if (id) return prev.filter((p) => p.id !== id);
+      if (typeof index === "number" && index >= 0 && index < prev.length) {
+        return prev.filter((_, i) => i !== index);
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleDeletePage = useCallback(
+    (pageIndex) => {
+      if (!sheets || pageIndex < 0 || pageIndex >= sheets.length) return;
+      const targetSheet = sheets[pageIndex];
+      const cellPhotoIds =
+        targetSheet.layoutCells?.map((c) => c.photoId).filter(Boolean) || [];
+      const photoCountOnPage = cellPhotoIds.length;
+
+      const confirmMsg = `Are you sure you want to delete Page ${pageIndex + 1}? This will remove ${photoCountOnPage} photo${photoCountOnPage === 1 ? "" : "s"} on this page from your layout.`;
+      if (!window.confirm(confirmMsg)) return;
+
+      setPhotos((prev) => {
+        if (cellPhotoIds.length > 0) {
+          const idSet = new Set(cellPhotoIds);
+          return prev.filter((p) => !idSet.has(p.id));
+        }
+        // Fallback: slice range
+        const start = pageIndex * photosPerPage;
+        const end = start + photosPerPage;
+        return prev.filter((_, i) => i < start || i >= end);
+      });
+
+      // Shift remaining pageLabel overrides
+      setPageLabels((prev) => {
+        const next = {};
+        Object.entries(prev).forEach(([key, val]) => {
+          const k = parseInt(key, 10);
+          if (k < pageIndex) next[key] = val;
+          else if (k > pageIndex) next[String(k - 1)] = val;
+        });
+        return next;
+      });
+    },
+    [sheets, photosPerPage],
+  );
 
   const handleDuplicatePhoto = (photo) => {
     const copy = {
@@ -415,18 +469,6 @@ export default function App() {
     },
     [],
   );
-
-  // Photos that fit on one page (used for "apply filter to page N" feature).
-  // For continuous sheets perSheet is "Unlimited", so compute it from rows.
-  const photosPerPage = useMemo(() => {
-    if (typeof gridInfo.perSheet === "number" && gridInfo.perSheet > 0) {
-      return gridInfo.perSheet;
-    }
-    const cols = gridInfo.cols || 1;
-    return cols * Math.max(1, Math.ceil(photos.length / cols));
-  }, [gridInfo, photos.length]);
-
-  const totalPages = Math.max(1, Math.ceil(photos.length / photosPerPage));
 
   const handleApplyFilterToAll = useCallback((newFilter, newIntensity) => {
     setPhotos((prev) =>
@@ -718,6 +760,8 @@ export default function App() {
               isGenerating={isGenerating}
               onUpdatePhotoCrop={handleUpdatePhotoCrop}
               onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
+              onDeletePhoto={handleRemovePhoto}
+              onDeletePage={handleDeletePage}
               onUpdatePageLabel={handleUpdatePageLabel}
               onUpdatePageLabelPosition={handleUpdatePageLabelPosition}
             />

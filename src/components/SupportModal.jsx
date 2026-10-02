@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Coffee, Download } from "lucide-react";
+import { createPortal } from "react-dom";
+import { X, Coffee, Download, QrCode } from "lucide-react";
 import "./SupportModal.css";
 
 /**
  * Self-contained "Buy me a coffee" support component.
- * Renders a text-style trigger button and, when open, an accessible
- * modal showing the GCash QR code (/public/gcash-qr.png).
+ * Renders a text-style trigger button and, when open, renders an accessible
+ * modal centered on the screen via React Portal showing the QR code (/support-qr.png).
  *
  * Closes via: X button, backdrop click, or Escape key.
- * Handles focus move-in/restore, body scroll lock, and a subtle
- * fade/scale-in animation.
+ * Handles focus move-in/restore, body scroll lock, and subtle fade/scale-in animation.
  */
-export default function SupportModal() {
+export default function SupportModal({ theme = "light" }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef(null); // trigger button — restore focus here on close
   const dialogRef = useRef(null); // dialog card — move focus here on open
@@ -47,6 +47,70 @@ export default function SupportModal() {
     if (e.target === e.currentTarget) setOpen(false);
   };
 
+  const modalContent = open ? (
+    <div
+      className={`support-overlay ${theme === "dark" ? "theme-dark" : "theme-light"}`}
+      onClick={handleBackdropClick}
+      role="presentation"
+    >
+      <div
+        ref={dialogRef}
+        className="support-card glass-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="support-modal-title"
+        tabIndex={-1}
+      >
+        <button
+          type="button"
+          className="support-close"
+          onClick={() => setOpen(false)}
+          aria-label="Close"
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
+
+        <div className="support-card-icon" aria-hidden="true">
+          <Coffee size={24} color="#ffffff" />
+        </div>
+
+        <h2 id="support-modal-title" className="support-title">
+          Buy me a coffee
+        </h2>
+        <p className="support-message">
+          Scan with <strong>GCash</strong>, <strong>Maya</strong>, or any banking app via QR Ph / InstaPay to support PrintLay. Every cup keeps new features brewing! ☕
+        </p>
+
+        <div className="support-qr-wrapper">
+          <img
+            className="support-qr"
+            src="/support-qr.png"
+            alt="QR Ph / InstaPay / GCash QR code — scan with your preferred e-wallet or banking app"
+            width={240}
+            height={218}
+          />
+          <div className="support-badge-row">
+            <span className="support-pill-badge">
+              <QrCode size={12} /> QR Ph • InstaPay
+            </span>
+            <span className="support-pill-badge">GCash • Maya • Banks</span>
+          </div>
+        </div>
+
+        <div className="support-actions">
+          <a
+            className="support-download-btn"
+            href="/support-qr.png"
+            download="printlay-support-qr.png"
+          >
+            <Download size={14} aria-hidden="true" />
+            Download QR Code
+          </a>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <button
@@ -61,60 +125,7 @@ export default function SupportModal() {
         Buy me a coffee
       </button>
 
-      {open && (
-        <div
-          className="support-overlay"
-          onClick={handleBackdropClick}
-          role="presentation"
-        >
-          <div
-            ref={dialogRef}
-            className="support-card glass-card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="support-modal-title"
-            tabIndex={-1}
-          >
-            <button
-              type="button"
-              className="support-close"
-              onClick={() => setOpen(false)}
-              aria-label="Close"
-            >
-              <X size={18} aria-hidden="true" />
-            </button>
-
-            <div className="support-card-icon" aria-hidden="true">
-              <Coffee size={22} color="#ffffff" />
-            </div>
-
-            <h2 id="support-modal-title" className="support-title">
-              Buy me a coffee
-            </h2>
-            <p className="support-message">
-              Scan with GCash to support me! Every coffee keeps PrintLay
-              brewing. ☕
-            </p>
-
-            <img
-              className="support-qr"
-              src="/gcash-qr.png"
-              alt="GCash QR code — scan with the GCash app to send a tip"
-              width={280}
-              height={280}
-            />
-
-            <a
-              className="support-download"
-              href="/gcash-qr.png"
-              download="gcash-qr.png"
-            >
-              <Download size={14} aria-hidden="true" />
-              Download QR
-            </a>
-          </div>
-        </div>
-      )}
+      {open && typeof document !== "undefined" && createPortal(modalContent, document.body)}
     </>
   );
 }

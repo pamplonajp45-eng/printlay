@@ -216,7 +216,7 @@ export default function Header({
 
         {/* Info badges & Actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <SupportModal />
+          <SupportModal theme={theme} />
           <button
             type="button"
             onClick={onToggleTheme}

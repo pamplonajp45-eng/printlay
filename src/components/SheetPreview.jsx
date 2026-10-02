@@ -6,6 +6,8 @@ import {
   ZoomOut,
   Layers,
   Maximize,
+  Trash2,
+  Crop,
 } from "lucide-react";
 import { SheetSkeleton } from "./Skeleton";
 
@@ -18,6 +20,8 @@ export default function SheetPreview({
   isGenerating = false,
   onUpdatePhotoCrop,
   onOpenCropModal,
+  onDeletePhoto,
+  onDeletePage,
   onUpdatePageLabel,
   onUpdatePageLabelPosition,
 }) {
@@ -423,6 +427,15 @@ export default function SheetPreview({
     setEditingLabel(false);
   };
 
+  const handleDeletePageClick = () => {
+    if (typeof onDeletePage === "function") {
+      onDeletePage(safeIndex);
+      if (activeSheetIndex >= sheets.length - 1) {
+        setActiveSheetIndex(Math.max(0, sheets.length - 2));
+      }
+    }
+  };
+
   return (
     <div
       ref={wheelZoomRef}
@@ -440,6 +453,68 @@ export default function SheetPreview({
         onMouseDown: handleViewportMouseDown,
       }}
     >
+      {/* Floating page indicator & quick delete — top-left */}
+      {sheets && sheets.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "16px",
+            left: "20px",
+            zIndex: 40,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "6px 14px",
+            borderRadius: "999px",
+            background: "rgba(255,255,255,0.92)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            boxShadow: "0 4px 16px rgba(35, 31, 53, 0.1)",
+            border: "1px solid rgba(255,255,255,0.8)",
+            fontSize: "12px",
+            color: "#57536b",
+          }}
+        >
+          <span>
+            <strong style={{ color: "#3d3856" }}>Page {safeIndex + 1}</strong> of {sheets.length}
+            <span style={{ color: "#9590a8", marginLeft: 6 }}>
+              ({currentSheet.layoutCells?.length || 0} photo{currentSheet.layoutCells?.length === 1 ? "" : "s"})
+            </span>
+          </span>
+
+          {typeof onDeletePage === "function" && (
+            <button
+              type="button"
+              onClick={handleDeletePageClick}
+              title={`Delete Page ${safeIndex + 1} (${currentSheet.layoutCells?.length || 0} photos)`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 9px",
+                borderRadius: "999px",
+                border: "none",
+                background: "rgba(239, 68, 68, 0.1)",
+                color: "#dc2626",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+              }}
+            >
+              <Trash2 size={12} />
+              <span>Delete Page</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Floating sheet-format label — bottom-right, clear of the rail/sidebar */}
       <div
         style={{
@@ -482,7 +557,7 @@ export default function SheetPreview({
           <>
             <RenderedCanvasHost canvas={currentSheet.canvas} />
 
-        {/* Cell overlays — invisible until hovered, clean solid outline (no dashed dead-state) */}
+        {/* Cell overlays — invisible until hovered, clean solid outline with spot actions */}
         {layoutCells.map((cell) => {
           const leftPct = (cell.x / sheetWpx) * 100;
           const topPct = (cell.y / sheetHpx) * 100;
@@ -534,7 +609,91 @@ export default function SheetPreview({
                 transition: "border-color 120ms ease",
               }}
               title="Click to open crop editor, or drag to pan"
-            />
+            >
+              {/* Quick Action Buttons on Hover */}
+              {isHovered && !isPanning && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "6px",
+                    right: "6px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    zIndex: 30,
+                    pointerEvents: "auto",
+                  }}
+                >
+                  <button
+                    type="button"
+                    title="Adjust photo crop & filters"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenCropModal?.(cell.photoItem);
+                    }}
+                    style={{
+                      width: "26px",
+                      height: "26px",
+                      borderRadius: "50%",
+                      background: "rgba(255, 255, 255, 0.95)",
+                      border: "1px solid rgba(143, 127, 224, 0.4)",
+                      color: "#3d3856",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.12)";
+                      e.currentTarget.style.background = "#ffffff";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.95)";
+                    }}
+                  >
+                    <Crop size={13} />
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Delete this picture from layout"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeletePhoto?.(cell.photoId, cell.index);
+                    }}
+                    style={{
+                      width: "26px",
+                      height: "26px",
+                      borderRadius: "50%",
+                      background: "#ef4444",
+                      border: "1px solid rgba(255, 255, 255, 0.6)",
+                      color: "#ffffff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 8px rgba(239, 68, 68, 0.45)",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.12)";
+                      e.currentTarget.style.background = "#dc2626";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                      e.currentTarget.style.background = "#ef4444";
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )}
+            </div>
           );
         })}
 
@@ -726,6 +885,49 @@ export default function SheetPreview({
               }}
             >
               <ChevronRight size={16} />
+            </button>
+          </>
+        )}
+
+        {sheets && sheets.length > 0 && typeof onDeletePage === "function" && (
+          <>
+            <div
+              style={{
+                width: 1,
+                height: 18,
+                background: "rgba(0,0,0,0.1)",
+                margin: "0 4px",
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleDeletePageClick}
+              title={`Delete Page ${safeIndex + 1} (${currentSheet.layoutCells?.length || 0} photo(s))`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 11px",
+                borderRadius: "999px",
+                border: "1px solid rgba(239, 68, 68, 0.25)",
+                background: "rgba(239, 68, 68, 0.08)",
+                color: "#dc2626",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.18)";
+                e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.45)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
+                e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.25)";
+              }}
+            >
+              <Trash2 size={13} />
+              <span>Delete Page</span>
             </button>
           </>
         )}
