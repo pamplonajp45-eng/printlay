@@ -1,0 +1,306 @@
+/* Private Feedback Inbox Styles */
+
+.inbox-page-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px 60px;
+}
+
+.inbox-container {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Header bar */
+.inbox-header-card {
+  padding: 16px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-radius: var(--card-radius);
+}
+
+.inbox-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.inbox-logo {
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 4px 10px rgba(109, 95, 232, 0.22));
+}
+
+.inbox-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.inbox-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Summary stats bar */
+.inbox-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.inbox-stat-card {
+  padding: 16px 20px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inbox-stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.inbox-stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-dark);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
+}
+
+.inbox-stat-sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Controls row (Mark all read, refresh) */
+.inbox-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.inbox-count-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.inbox-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Feedback list */
+.inbox-feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inbox-feedback-item {
+  position: relative;
+  padding: 18px 20px;
+  border-radius: 18px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.inbox-feedback-item.unread {
+  border-left: 4px solid var(--primary-accent);
+}
+
+.inbox-feedback-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inbox-feedback-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inbox-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-accent);
+  box-shadow: 0 0 8px var(--primary-accent);
+  flex-shrink: 0;
+}
+
+.inbox-emoji-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.inbox-rating-number {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Action Badges */
+.inbox-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--pill-radius);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.inbox-badge-pdf {
+  background: rgba(229, 91, 91, 0.14);
+  color: #d14343;
+  border: 1px solid rgba(229, 91, 91, 0.25);
+}
+
+.inbox-badge-png {
+  background: rgba(67, 181, 129, 0.14);
+  color: #279e67;
+  border: 1px solid rgba(67, 181, 129, 0.25);
+}
+
+.inbox-badge-print {
+  background: rgba(143, 127, 224, 0.16);
+  color: var(--primary-accent);
+  border: 1px solid rgba(143, 127, 224, 0.28);
+}
+
+.theme-dark .inbox-badge-pdf {
+  color: #ff8585;
+}
+.theme-dark .inbox-badge-png {
+  color: #4ce69b;
+}
+
+.inbox-time {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.inbox-feedback-comment {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dark);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.inbox-no-comment {
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Empty State */
+.inbox-empty-card {
+  padding: 48px 24px;
+  text-align: center;
+  border-radius: var(--card-radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.inbox-empty-icon {
+  font-size: 42px;
+  margin-bottom: 12px;
+}
+
+.inbox-empty-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.inbox-empty-desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 400px;
+}
+
+/* Login Gate Card */
+.inbox-login-card {
+  max-width: 400px;
+  width: 100%;
+  margin: 80px auto 0;
+  padding: 32px 28px;
+  border-radius: var(--card-radius);
+  text-align: center;
+}
+
+.inbox-lock-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(143, 127, 224, 0.15);
+  color: var(--primary-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.inbox-login-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(143, 127, 224, 0.3);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-dark);
+  font-size: 14px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+
+.theme-dark .inbox-login-input {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(194, 184, 255, 0.25);
+  color: #f0edff;
+}
+
+.inbox-login-input:focus {
+  outline: none;
+  border-color: var(--primary-accent);
+  box-shadow: 0 0 0 3px rgba(143, 127, 224, 0.2);
+}

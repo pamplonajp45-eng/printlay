@@ -9,6 +9,7 @@ import SheetPreview from "./components/SheetPreview";
 import CropModal from "./components/CropModal";
 import GuideModal from "./components/GuideModal";
 import TextControls from "./components/TextControls";
+import FeedbackPrompt from "./components/FeedbackPrompt";
 import { Upload, Image, FileText, Sliders, X, Type } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
@@ -419,28 +420,103 @@ export default function App() {
     }));
   }, []);
 
+  // Feedback Prompt Trigger & State (once-per-browser-user, non-blocking)
+  // Rules:
+  //   submitted  → never show again (permanent)
+  //   dismissed  → skip for 30 days, then eligible again
+  const [feedbackPrompt, setFeedbackPrompt] = useState({
+    isOpen: false,
+    action: "print",
+  });
+
+  const triggerFeedbackPrompt = useCallback((action) => {
+    try {
+      const raw = localStorage.getItem("printlay_feedback");
+      if (raw) {
+        const data = JSON.parse(raw);
+        // Permanently suppressed after submission
+        if (data.status === "submitted") return;
+        // Suppressed for 30 days after dismissal
+        if (data.status === "dismissed" && data.until) {
+          if (Date.now() < data.until) return;
+        }
+      }
+    } catch {
+      // Ignore storage errors (private browsing, quota exceeded, etc.)
+    }
+
+    setFeedbackPrompt({ isOpen: true, action: action || "print" });
+  }, []);
+
+  const handleDismissFeedback = useCallback(() => {
+    try {
+      // Re-eligible after 30 days — don't permanently silence casual dismissers
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      localStorage.setItem(
+        "printlay_feedback",
+        JSON.stringify({ status: "dismissed", until: Date.now() + THIRTY_DAYS_MS }),
+      );
+    } catch {}
+    setFeedbackPrompt((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  const handleSubmitFeedbackSuccess = useCallback(() => {
+    try {
+      // Permanent — submitted users never see the prompt again
+      localStorage.setItem(
+        "printlay_feedback",
+        JSON.stringify({ status: "submitted", at: Date.now() }),
+      );
+    } catch {}
+    setFeedbackPrompt((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  // Listen for browser print shortcut (Ctrl+P / Cmd+P) or beforeprint event
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      triggerFeedbackPrompt("print");
+    };
+
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === "p") {
+        triggerFeedbackPrompt("print");
+      }
+    };
+
+    window.addEventListener("beforeprint", handleBeforePrint);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("beforeprint", handleBeforePrint);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [triggerFeedbackPrompt]);
+
   const handleDownloadPdf = useCallback(async () => {
     if (!sheets || sheets.length === 0) return;
+    triggerFeedbackPrompt("pdf");
     await exportToPdf(
       sheets,
       activeSheetPreset,
       `printlay-layout-${Date.now()}.pdf`,
     );
-  }, [sheets, activeSheetPreset]);
+  }, [sheets, activeSheetPreset, triggerFeedbackPrompt]);
 
   const handleDownloadZip = useCallback(async () => {
     if (!sheets || sheets.length === 0) return;
+    triggerFeedbackPrompt("png");
     if (sheets.length === 1) {
       exportSheetPng(sheets[0].canvas, 0, "printlay-sheet-1.png");
     } else {
       await exportAllPngsZip(sheets, `printlay-sheets-${Date.now()}.zip`);
     }
-  }, [sheets]);
+  }, [sheets, triggerFeedbackPrompt]);
 
   const handlePrint = useCallback(async () => {
     if (!sheets || sheets.length === 0) return;
+    triggerFeedbackPrompt("print");
     await triggerBrowserPrint(sheets, activeSheetPreset);
-  }, [sheets, activeSheetPreset]);
+  }, [sheets, activeSheetPreset, triggerFeedbackPrompt]);
 
   const handleUpdatePhotoCrop = useCallback((photoId, newCropSettings) => {
     setPhotos((prev) =>
@@ -787,6 +863,14 @@ export default function App() {
       {showGuideModal && (
         <GuideModal onClose={() => setShowGuideModal(false)} />
       )}
+
+      {/* Lightweight Export Feedback Prompt Toast */}
+      <FeedbackPrompt
+        isOpen={feedbackPrompt.isOpen}
+        action={feedbackPrompt.action}
+        onClose={handleDismissFeedback}
+        onSubmitSuccess={handleSubmitFeedbackSuccess}
+      />
     </div>
   );
 }
