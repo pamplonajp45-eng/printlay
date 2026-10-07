@@ -1,4 +1,3 @@
-import React from "react";
 import { SHEET_PRESETS } from "../lib/presets";
 import { FileText, RectangleVertical, RectangleHorizontal } from "lucide-react";
 

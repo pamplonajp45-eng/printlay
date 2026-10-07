@@ -10,7 +10,6 @@ import {
   FileDown,
   Image as ImageIcon,
   Printer,
-  Sparkles,
   Loader2,
   AlertCircle,
 } from "lucide-react";
@@ -111,11 +110,12 @@ export default function FeedbackInbox({ onNavigateHome }) {
     }
   }, [adminKey]);
 
-  // Attempt initial load if key is stored in session
+  // Attempt initial load if key is stored in session (deferred one tick so no
+  // state updates run synchronously inside the effect body)
   useEffect(() => {
-    if (adminKey) {
-      fetchFeedbacks(adminKey);
-    }
+    if (!adminKey) return undefined;
+    const timer = setTimeout(() => fetchFeedbacks(adminKey), 0);
+    return () => clearTimeout(timer);
   }, [adminKey, fetchFeedbacks]);
 
   // Handle Login submission

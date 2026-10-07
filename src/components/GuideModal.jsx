@@ -1,5 +1,4 @@
-import React from "react";
-import { X, CheckCircle2, Sparkles, Printer, Crop, ShieldCheck } from "lucide-react";
+import { X, Sparkles, ShieldCheck } from "lucide-react";
 
 export default function GuideModal({ onClose }) {
   return (

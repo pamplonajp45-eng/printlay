@@ -46,15 +46,17 @@ export default function SheetPreview({
 
   useEffect(() => {
     if (!isGenerating) {
-      setShowSkeleton(false);
-      return;
+      return undefined;
     }
 
     const timer = setTimeout(() => {
       setShowSkeleton(true);
     }, 180);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      setShowSkeleton(false);
+    };
   }, [isGenerating]);
 
   const ZOOM_MIN = 0.25;
@@ -66,9 +68,13 @@ export default function SheetPreview({
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef(null);
   const panRef = useRef(pan);
-  panRef.current = pan;
   const zoomRef = useRef(previewZoom);
-  zoomRef.current = previewZoom;
+
+  // Sync pan/zoom into refs after render (refs must not be written during render)
+  useEffect(() => {
+    panRef.current = pan;
+    zoomRef.current = previewZoom;
+  }, [pan, previewZoom]);
 
   // Hold Space → panning mode (ignored while typing in text fields)
   const spaceDownRef = useRef(false);
@@ -414,11 +420,6 @@ export default function SheetPreview({
   const { sheetWpx, sheetHpx, layoutCells = [] } = currentSheet;
   const labelBounds = currentSheet.pageLabelBounds;
   const hasMultiplePages = sheets.length > 1;
-
-  const startEditLabel = () => {
-    setEditValue(currentSheet.pageLabelText || "");
-    setEditingLabel(true);
-  };
 
   const commitLabel = () => {
     if (typeof onUpdatePageLabel === "function") {

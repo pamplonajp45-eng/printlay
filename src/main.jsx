@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- app entry file renders the root component */
 import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'

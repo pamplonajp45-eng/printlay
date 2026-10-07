@@ -456,7 +456,9 @@ export default function App() {
         "printlay_feedback",
         JSON.stringify({ status: "dismissed", until: Date.now() + THIRTY_DAYS_MS }),
       );
-    } catch {}
+    } catch {
+      // localStorage may be unavailable — ignore
+    }
     setFeedbackPrompt((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
@@ -467,7 +469,9 @@ export default function App() {
         "printlay_feedback",
         JSON.stringify({ status: "submitted", at: Date.now() }),
       );
-    } catch {}
+    } catch {
+      // localStorage may be unavailable — ignore
+    }
     setFeedbackPrompt((prev) => ({ ...prev, isOpen: false }));
   }, []);
 

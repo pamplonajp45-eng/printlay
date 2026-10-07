@@ -1,6 +1,6 @@
-import React, { useRef, useState } from "react";
-import { Upload, Image as ImageIcon, Sparkles, Loader2, PlusCircle } from "lucide-react";
-import { isHeicFile, convertHeicToJpeg } from "../lib/heicEngine";
+import React, { useRef, useState, useCallback } from "react";
+import { Upload, Sparkles, Loader2, PlusCircle, X } from "lucide-react";
+import { isHeicFile, convertHeicFilesInParallel } from "../lib/heicEngine";
 import { PhotoGridSkeleton } from "./Skeleton";
 
 // Demo sample images for quick 1-click testing
@@ -20,11 +20,16 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
   const [loadingCount, setLoadingCount] = useState(6);
   // Only display skeleton loading effect if file processing is taking noticeable time (> 180ms)
   const [showSkeleton, setShowSkeleton] = useState(false);
+  // Parallel HEIC conversion progress state
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [perFileProgress, setPerFileProgress] = useState([]);
+  const [isCancelled, setIsCancelled] = useState(false);
+  const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   React.useEffect(() => {
     if (!isLoading) {
-      setShowSkeleton(false);
       return;
     }
 
@@ -35,45 +40,131 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  const processFiles = async (fileList) => {
+  const processFiles = useCallback(async (fileList) => {
     if (!fileList || fileList.length === 0) return;
+
+    // Cancel any ongoing conversion
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     setLoadingCount(fileList.length || 6);
     setIsLoading(true);
+    setShowSkeleton(false);
+    setIsCancelled(false);
+    setError(null);
     setLoadingText(`Processing ${fileList.length} photo${fileList.length > 1 ? "s" : ""}...`);
+    setPerFileProgress([]);
+    setProgressPercent(0);
 
     const rawFiles = Array.from(fileList);
+    const heicFiles = rawFiles.filter((f) => isHeicFile(f));
+    const otherFiles = rawFiles.filter((f) => !isHeicFile(f));
+
     const processedItems = [];
 
-    for (let i = 0; i < rawFiles.length; i++) {
-      let file = rawFiles[i];
+    try {
+      // Process HEIC files in parallel with concurrency control
+      if (heicFiles.length > 0) {
+        setLoadingText(`Converting iPhone HEIC photos (${heicFiles.length})...`);
+        const results = await convertHeicFilesInParallel(heicFiles, {
+          concurrency: 4,
+          signal: abortController.signal,
+          onProgress: (id, done, total) => {
+            setProgressPercent(Math.round((done / total) * 100));
+            setPerFileProgress((prev) => {
+              const existing = prev.find((entry) => entry.id === id);
+              if (existing) {
+                return prev.map((entry) =>
+                  entry.id === id
+                    ? { ...entry, status: "done", progress: 100 }
+                    : entry,
+                );
+              }
+              return [
+                ...prev,
+                { id, name: id, status: "done", progress: 100 },
+              ];
+            });
+          },
+        });
 
-      if (!file.type.startsWith("image/") && !isHeicFile(file)) {
-        continue;
+        // Update processedItems with converted HEIC files (now Blobs)
+        for (let i = 0; i < results.results.length; i++) {
+          const result = results.results[i];
+          if (result) {
+            const originalFile = heicFiles[i];
+            processedItems.push({
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              name: originalFile.name.replace(/\.(heic|heif)$/i, ".jpg"),
+              file: result,
+              url: await fileToDataUrl(result),
+              dataUrl: await fileToDataUrl(result),
+              cropSettings: { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
+              isHeicConverted: true,
+              originalName: originalFile.name,
+            });
+          }
+        }
       }
 
-      if (isHeicFile(file)) {
-        setLoadingText(`Converting iPhone HEIC photo (${i + 1}/${rawFiles.length})...`);
-        file = await convertHeicToJpeg(file);
+      // Process non-HEIC files (JPG, PNG, WEBP) directly
+      for (const file of otherFiles) {
+        processedItems.push({
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          file,
+          url: await fileToDataUrl(file),
+          dataUrl: await fileToDataUrl(file),
+          cropSettings: { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
+          isHeicConverted: false,
+          originalName: file.name,
+        });
       }
 
-      const dataUrl = await fileToDataUrl(file);
-      processedItems.push({
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name,
-        file,
-        url: dataUrl,
-        dataUrl,
-        cropSettings: { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
-      });
-    }
+      if (processedItems.length > 0) {
+        onPhotosAdded(processedItems);
+      }
 
-    if (processedItems.length > 0) {
-      onPhotosAdded(processedItems);
-    }
+      setIsLoading(false);
+      setLoadingText("");
+      setProgressPercent(100);
 
-    setIsLoading(false);
-    setLoadingText("");
+      // Cleanup file objects to free memory after data URLs extracted
+      setTimeout(() => {
+        for (const item of processedItems) {
+          if (item.file && item.isHeicConverted) {
+            // For HEIC converted files, we already stored dataURL, clean up blob
+            item.file = null;
+          }
+        }
+      }, 1000);
+
+    } catch (err) {
+      if (err.name === "AbortError") {
+        setLoadingText("Conversion cancelled");
+        setIsLoading(false);
+        setProgressPercent(0);
+        setPerFileProgress([]);
+        return;
+      }
+      setError(err.message || "Failed to process photos");
+      setIsLoading(false);
+      setProgressPercent(0);
+      setPerFileProgress([]);
+    } finally {
+      abortControllerRef.current = null;
+    }
+  }, [onPhotosAdded]);
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setIsCancelled(true);
   };
 
   const handleDrop = (e) => {
@@ -85,38 +176,139 @@ export default function UploadZone({ onPhotosAdded, photoCount }) {
     }
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(true);
-  };
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); };
 
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-  };
-
-  const loadSamplePhotos = async () => {
-    setLoadingCount(6);
-    setIsLoading(true);
+  const loadSamplePhotos = () => {
     setLoadingText("Loading 6 sample photos for demonstration...");
+    setIsLoading(true);
+    setShowSkeleton(false);
+    setProgressPercent(0);
 
-    const sampleItems = SAMPLE_PHOTOS.map((sample, idx) => ({
-      id: `sample-${Date.now()}-${idx}`,
-      name: sample.name,
-      url: sample.url,
-      dataUrl: sample.url,
-      cropSettings: { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
-    }));
+    setTimeout(() => {
+      const sampleItems = SAMPLE_PHOTOS.map((sample, idx) => ({
+        id: `sample-${Date.now()}-${idx}`,
+        name: sample.name,
+        url: sample.url,
+        dataUrl: sample.url,
+        cropSettings: { offsetX: 0, offsetY: 0, zoom: 1, rotate: 0 },
+      }));
 
-    onPhotosAdded(sampleItems);
-    setIsLoading(false);
-    setLoadingText("");
+      onPhotosAdded(sampleItems);
+      setIsLoading(false);
+      setLoadingText("");
+      setProgressPercent(100);
+    }, 500);
   };
 
   return (
     <div className="glass-card" style={{ padding: "24px", marginBottom: "20px" }}>
+      {isLoading && (
+        <div
+          style={{
+            marginBottom: "14px",
+            padding: "12px 16px",
+            background: "rgba(143, 127, 224, 0.08)",
+            border: "1px solid rgba(143, 127, 224, 0.25)",
+            borderRadius: "12px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <Loader2 size={16} color="#8f7fe0" className="animate-spin" />
+              <p
+                style={{
+                  margin: 0,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: "#3d3856",
+                }}
+              >
+                {isCancelled ? "Cancelling\u2026" : loadingText}
+              </p>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#8f7fe0" }}>
+                {progressPercent}%
+              </span>
+              <button
+                type="button"
+                onClick={handleCancel}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 12,
+                  padding: "4px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(239, 68, 68, 0.4)",
+                  background: "rgba(239, 68, 68, 0.08)",
+                  color: "#b91c1c",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={13} /> Cancel
+              </button>
+            </div>
+          </div>
+          <div
+            style={{
+              marginTop: "10px",
+              height: "6px",
+              borderRadius: "999px",
+              background: "rgba(143, 127, 224, 0.18)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${progressPercent}%`,
+                height: "100%",
+                background: "#8f7fe0",
+                borderRadius: "999px",
+                transition: "width 200ms ease",
+              }}
+            />
+          </div>
+          {perFileProgress.length > 0 && (
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: 12,
+                color: "#7c7893",
+              }}
+            >
+              Converted {perFileProgress.length} of {loadingCount} HEIC file
+              {loadingCount === 1 ? "" : "s"}
+            </p>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            marginBottom: "14px",
+            padding: "10px 16px",
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.35)",
+            borderRadius: "12px",
+            fontSize: 13,
+            color: "#b91c1c",
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}

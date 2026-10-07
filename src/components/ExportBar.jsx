@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Download,
   FileDown,
   Printer,
   Archive,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 import {
   exportToPdf,

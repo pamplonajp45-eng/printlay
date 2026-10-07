@@ -14,7 +14,7 @@ import {
   AlignRight,
 } from "lucide-react";
 import { cropToCanvas, loadImage, PHOTO_FILTERS } from "../lib/cropEngine";
-import { FONT_FAMILIES } from "./TextControls";
+import { FONT_FAMILIES } from "../lib/fonts";
 
 export default function CropModal({
   photo,

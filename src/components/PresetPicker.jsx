@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { PHOTO_PRESETS, cmToIn, mmToIn } from "../lib/presets";
 import { Sliders, RectangleVertical, RectangleHorizontal } from "lucide-react";
 

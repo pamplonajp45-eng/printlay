@@ -1,5 +1,4 @@
-import React from "react";
-import { Image as ImageIcon, Sparkles, Layers } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 
 /**
  * Base generic Skeleton element with animated shimmer gradient sweep.
@@ -98,7 +97,6 @@ export function PhotoGridSkeleton({ count = 6 }) {
  */
 export function SheetSkeleton({
   sheetPreset,
-  photoPreset,
   gridInfo,
   photoCount = 4,
 }) {

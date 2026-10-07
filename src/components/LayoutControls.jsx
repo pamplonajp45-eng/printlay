@@ -1,4 +1,3 @@
-import React from "react";
 import { Scissors, Sliders, Tag, Gauge } from "lucide-react";
 import PageLabelControls from "./PageLabelControls";
 
@@ -17,8 +16,6 @@ export default function LayoutControls({
   onChangeGutter,
   dpi,
   onChangeDpi,
-  frameBgColor,
-  onChangeFrameBgColor,
   showSequenceLabels,
   onToggleSequenceLabels,
   pageLabel,

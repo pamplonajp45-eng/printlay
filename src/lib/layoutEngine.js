@@ -112,7 +112,6 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     // (rows - 1) strips BETWEEN rows + 1 strip above the first row (must stay
     // on-sheet inside the top margin for the label to be readable)
     gridH + rows * labelStripH <= availH;
-  const rowPitchY = photoHpx + (useLabelStrips ? labelStripH : 0);
   const finalGridH = gridH + (useLabelStrips ? (rows - 1) * labelStripH : 0);
   const offsetX = marginPx + (sheetWpx - 2 * marginPx - gridW) / 2;
   // Reserve one extra strip BELOW the last row: the last row's label is drawn
@@ -183,7 +182,6 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
           photoName,
           dpi,
           gutterPx,
-          cell.col,
           cell.labelStripH || 0,
           cell.row === rows - 1,
         );
@@ -422,7 +420,6 @@ function drawSequenceLabel(
   text,
   dpi,
   gutterPx = 1,
-  col = 0,
   stripH = 0,
   isLastRow = false,
 ) {

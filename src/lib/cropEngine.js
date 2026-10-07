@@ -12,7 +12,7 @@ export function loadImage(url) {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = (err) => reject(new Error(`Failed to load image: ${url}`));
+    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
     img.src = url;
   });
 }
