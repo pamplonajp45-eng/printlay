@@ -163,7 +163,9 @@ export default async function handler(req, res) {
       }
 
       const safeComment = String(comment).slice(0, 500).trim();
-      const safeAction = ["pdf", "png", "print"].includes(
+      const safeName = body.name ? String(body.name).slice(0, 50).trim() : "Anonymous";
+      const safeType = body.type ? String(body.type).slice(0, 30).trim() : "Praise";
+      const safeAction = ["pdf", "png", "print", "feedback"].includes(
         String(action).toLowerCase(),
       )
         ? String(action).toLowerCase()
@@ -174,6 +176,7 @@ export default async function handler(req, res) {
         rating: numRating,
         comment: safeComment,
         action: safeAction,
+        featured: false,
         createdAt: new Date().toISOString(),
       };
 
@@ -192,7 +195,54 @@ export default async function handler(req, res) {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Auth gate for all remaining methods (GET, PATCH)
+  // Public Endpoint: GET /api/feedback/public (no key required)
+  // ══════════════════════════════════════════════════════════════════════════
+  const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  const isPublic =
+    urlObj.pathname.endsWith("/public") ||
+    urlObj.searchParams.get("public") === "true" ||
+    urlObj.searchParams.get("public") === "1";
+
+  if (isPublic && req.method === "GET") {
+    try {
+      if (!hasKV) return res.status(200).json({ success: true, items: [] });
+
+      const [rawItems, featuredIds] = await Promise.all([
+        kv("LRANGE", "printlay_feedbacks", "0", "-1"),
+        kv("SMEMBERS", "printlay_featured_ids"),
+      ]);
+
+      const featuredSet = new Set(featuredIds || []);
+      const publicItems = (rawItems || [])
+        .map((str) => {
+          try {
+            const p = typeof str === "string" ? JSON.parse(str) : str;
+            const isFeatured = featuredSet.has(p.id) || Boolean(p.featured);
+            if (!isFeatured || !p.comment || !p.comment.trim()) return null;
+            return {
+              id: p.id,
+              rating: p.rating,
+              comment: p.comment,
+              action: p.action,
+              createdAt: p.createdAt,
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 6);
+
+      return res.status(200).json({ success: true, items: publicItems });
+    } catch (err) {
+      console.error("Public feedback GET error:", err);
+      return res.status(500).json({ error: "Failed to load public feedback." });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Auth gate for private admin endpoints (GET, PATCH)
   // ══════════════════════════════════════════════════════════════════════════
   const authHeader = req.headers["authorization"] || "";
   const incomingKey =
@@ -221,18 +271,26 @@ export default async function handler(req, res) {
         });
       }
 
-      const [rawItems, readIds] = await Promise.all([
+      const [rawItems, readIds, featuredIds] = await Promise.all([
         kv("LRANGE", "printlay_feedbacks", "0", "-1"),
         kv("SMEMBERS", "printlay_read_ids"),
+        kv("SMEMBERS", "printlay_featured_ids"),
       ]);
 
       const readSet = new Set(readIds || []);
+      const featuredSet = new Set(featuredIds || []);
       const items = (rawItems || [])
         .map((str) => {
           try {
             const p = typeof str === "string" ? JSON.parse(str) : str;
-            return { ...p, read: readSet.has(p.id) };
-          } catch { return null; }
+            return {
+              ...p,
+              read: readSet.has(p.id),
+              featured: featuredSet.has(p.id) || Boolean(p.featured),
+            };
+          } catch {
+            return null;
+          }
         })
         .filter(Boolean)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -245,16 +303,22 @@ export default async function handler(req, res) {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // PATCH /api/feedback  — private admin: mark as read
+  // PATCH /api/feedback  — private admin: mark as read or toggle featured
   // ══════════════════════════════════════════════════════════════════════════
   if (req.method === "PATCH") {
     try {
       const body = parseBody(req.body);
-      const { markAllRead, id } = body;
+      const { markAllRead, id, featured } = body;
 
       if (!hasKV) return res.status(200).json({ success: true });
 
-      if (markAllRead) {
+      if (typeof featured === "boolean" && id) {
+        if (featured) {
+          await kv("SADD", "printlay_featured_ids", String(id));
+        } else {
+          await kv("SREM", "printlay_featured_ids", String(id));
+        }
+      } else if (markAllRead) {
         const rawItems = (await kv("LRANGE", "printlay_feedbacks", "0", "-1")) || [];
         const allIds = rawItems
           .map((str) => {
@@ -270,7 +334,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     } catch (err) {
       console.error("Feedback PATCH error:", err);
-      return res.status(500).json({ error: "Failed to update read status." });
+      return res.status(500).json({ error: "Failed to update feedback status." });
     }
   }
 

@@ -1,0 +1,21 @@
+.fb-wrap{display:flex;flex-direction:column;gap:40px;align-items:center;padding:60px 16px;max-width:1040px;margin:0 auto}
+.fb-right{order:1;width:100%;max-width:440px}.fb-left{order:2;width:100%;max-width:480px}
+@media(min-width:900px){.fb-wrap{flex-direction:row;justify-content:space-between;align-items:center}.fb-left{order:1}.fb-right{order:2}}
+.fb-stage{position:relative;width:100%;min-height:300px;display:flex;align-items:center;justify-content:center}
+.fb-peek-1{position:absolute;inset:0;transform:rotate(-4deg) scale(.95);opacity:.45;pointer-events:none}
+.fb-peek-2{position:absolute;inset:0;transform:rotate(4deg) scale(.9);opacity:.25;pointer-events:none}
+.fb-card-top{position:relative;width:100%;padding:28px;overflow:hidden;transition:transform 300ms ease,opacity 300ms ease}
+.fb-slide-out{transform:translateX(-30px) scale(.96);opacity:0}
+.fb-slide-in{transform:scale(1);opacity:1}
+.quote-icon{opacity:.12;color:var(--text-dark);position:absolute;bottom:64px;right:20px}
+.fb-comment{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;font-size:18px;line-height:1.5;margin:16px 0}
+.fb-card-footer{margin:-28px;margin-top:24px;padding:14px 20px;background:var(--primary-gradient);color:#fff;display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.fb-footer-user{display:flex;align-items:center;gap:8px;font-weight:700}
+.fb-footer-meta{display:flex;align-items:center;gap:10px;opacity:.9}
+.fb-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.2);font-weight:600}
+.fb-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:20px}
+.fb-arrow-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--primary-accent);background:var(--glass-bg);color:var(--text-dark);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .2s ease}
+.fb-arrow-btn:hover{transform:scale(1.08)}
+@media(prefers-reduced-motion:reduce){
+  .fb-card-top,.fb-arrow-btn{transition:none!important;transform:none!important}
+}

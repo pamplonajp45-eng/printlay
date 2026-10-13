@@ -3,6 +3,7 @@ import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import Landing from './Landing.jsx'
 import FeedbackInbox from './components/FeedbackInbox.jsx'
 
 function MainRouter() {
@@ -16,18 +17,33 @@ function MainRouter() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
+  const navigate = (path) => {
+    window.history.pushState({}, '', path)
+    setCurrentPath(path)
+    window.scrollTo(0, 0)
+  }
+
   if (currentPath === '/feedback-inbox') {
     return (
       <FeedbackInbox
-        onNavigateHome={() => {
-          window.history.pushState({}, '', '/')
-          setCurrentPath('/')
-        }}
+        onNavigateHome={() => navigate('/')}
       />
     )
   }
 
-  return <App />
+  if (currentPath === '/app' || currentPath === '/editor') {
+    return (
+      <App
+        onNavigateHome={() => navigate('/')}
+      />
+    )
+  }
+
+  return (
+    <Landing
+      onOpenEditor={() => navigate('/app')}
+    />
+  )
 }
 
 createRoot(document.getElementById('root')).render(

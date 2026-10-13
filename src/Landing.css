@@ -1,0 +1,52 @@
+.bubble-btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 28px;text-decoration:none;font-size:15px}
+.bubble-btn:focus-visible{outline:2px solid var(--primary-accent);outline-offset:3px}
+.step-row{display:flex;flex-direction:column;gap:32px;align-items:center;margin:56px 0}
+.step-col{width:100%}
+@media(min-width:900px){.step-row{flex-direction:row}.step-row:nth-child(odd){flex-direction:row-reverse}.step-col{flex:1}}
+.fade-up{opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease}
+.fade-up.in-view{opacity:1;transform:translateY(0)}
+.v-box{position:relative;display:flex;align-items:center;justify-content:center;min-height:300px;overflow:hidden;width:100%}
+.sc-1{--i:0;--x:-18px;--r:-6deg}
+.sc-2{--i:1;--x:-6px;--r:4deg}
+.sc-3{--i:2;--x:6px;--r:-2deg}
+.sc-4{--i:3;--x:18px;--r:2deg}
+.sc-1,.sc-2,.sc-3,.sc-4{opacity:0;transform:translateY(28px) rotate(0deg)}
+.in-view .sc-1,.in-view .sc-2,.in-view .sc-3,.in-view .sc-4{animation:cStk .4s ease calc(var(--i)*.12s) forwards}
+@keyframes cStk{to{opacity:1;transform:translate(var(--x,0),0) rotate(var(--r,0deg))}}
+.in-view .cnt-reel{animation:cRel .5s steps(4,end) .2s forwards}
+@keyframes cRel{to{transform:translateY(-80%)}}
+.crop-box{transform:scale(1.25);transition:transform .5s ease}
+.in-view .crop-box{transform:scale(.85)}
+.lbl-old{position:relative}
+.lbl-new{position:absolute;left:0;top:0;opacity:0;transform:translateY(6px)}
+.in-view .lbl-old{animation:lOut .3s ease forwards}
+.in-view .lbl-new{animation:lIn .3s ease .2s forwards}
+@keyframes lOut{to{opacity:0;transform:translateY(-6px)}}
+@keyframes lIn{to{opacity:1;transform:translateY(0)}}
+.grid-c:nth-child(1){--dx:-20px;--dy:-15px;--rot:-8deg;--gi:0}
+.grid-c:nth-child(2){--dx:20px;--dy:-15px;--rot:7deg;--gi:1}
+.grid-c:nth-child(3){--dx:-18px;--dy:18px;--rot:6deg;--gi:2}
+.grid-c:nth-child(4){--dx:18px;--dy:18px;--rot:-6deg;--gi:3}
+.grid-c{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--rot))}
+.in-view .grid-c{animation:gSnap .45s cubic-bezier(.34,1.56,.64,1) calc(var(--gi)*.08s) forwards}
+@keyframes gSnap{to{opacity:1;transform:translate(0,0) rotate(0deg)}}
+.guides{clip-path:inset(0 100% 0 0);opacity:0}
+.in-view .guides{animation:gWipe .4s ease .4s forwards}
+@keyframes gWipe{to{clip-path:inset(0 0 0 0);opacity:1}}
+.in-view .sheet-dl{animation:sLft .4s ease forwards}
+@keyframes sLft{to{transform:translateY(-10px)}}
+.chk-pop{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;opacity:0}
+.in-view .chk-pop{animation:cPop .35s cubic-bezier(.18,.89,.32,1.28) .2s forwards}
+@keyframes cPop{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){
+  .fade-up{opacity:1;transform:translateY(0);transition:none!important}
+  .sc-1,.sc-2,.sc-3,.sc-4{opacity:1!important;transform:translate(var(--x,0),0) rotate(var(--r,0deg))!important;animation:none!important}
+  .cnt-reel{transform:translateY(-80%)!important;animation:none!important}
+  .crop-box{transform:scale(.85)!important}
+  .lbl-old{opacity:0!important;transform:translateY(-6px)!important;animation:none!important}
+  .lbl-new{opacity:1!important;transform:translateY(0)!important;animation:none!important}
+  .grid-c{opacity:1!important;transform:translate(0,0) rotate(0deg)!important;animation:none!important}
+  .guides{clip-path:inset(0 0 0 0)!important;opacity:1!important;animation:none!important}
+  .sheet-dl{transform:translateY(-10px)!important;animation:none!important}
+  .chk-pop{opacity:1!important;transform:scale(1)!important;animation:none!important}
+}

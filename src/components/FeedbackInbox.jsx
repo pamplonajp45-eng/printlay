@@ -12,6 +12,7 @@ import {
   Printer,
   Loader2,
   AlertCircle,
+  Star,
 } from "lucide-react";
 import { formatTimeAgo } from "../lib/timeAgo";
 import "./FeedbackInbox.css";
@@ -118,12 +119,36 @@ export default function FeedbackInbox({ onNavigateHome }) {
     return () => clearTimeout(timer);
   }, [adminKey, fetchFeedbacks]);
 
-  // Handle Login submission
+  // Handle Login submission: only setAdminKey, let useEffect perform fetch
   const handleLogin = (e) => {
     e.preventDefault();
-    if (!inputKey.trim()) return;
-    setAdminKey(inputKey.trim());
-    fetchFeedbacks(inputKey.trim());
+    const trimmed = inputKey.trim();
+    if (!trimmed) return;
+    setAdminKey(trimmed);
+  };
+
+  // Toggle featured status for landing page
+  const handleToggleFeatured = async (id, currentFeatured) => {
+    const nextFeatured = !currentFeatured;
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-feedback-key": adminKey,
+        },
+        body: JSON.stringify({ id, featured: nextFeatured }),
+      });
+      if (res.ok) {
+        setFeedbacks((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, featured: nextFeatured } : item,
+          ),
+        );
+      }
+    } catch (err) {
+      console.error("Failed to toggle featured status:", err);
+    }
   };
 
   // Handle Logout
@@ -312,7 +337,7 @@ export default function FeedbackInbox({ onNavigateHome }) {
                       textAlign: "left",
                     }}
                   >
-                    <AlertCircle size={14} flexShrink={0} />
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
                     <span>{authError}</span>
                   </div>
                 )}
@@ -488,15 +513,43 @@ export default function FeedbackInbox({ onNavigateHome }) {
                               </span>
                             </div>
                             {renderActionBadge(item.action)}
+                            {item.featured && (
+                              <span
+                                className="inbox-badge"
+                                style={{
+                                  background: "rgba(245, 166, 35, 0.15)",
+                                  color: "#d97706",
+                                  gap: 4,
+                                }}
+                              >
+                                <Star size={11} fill="#d97706" /> Featured
+                              </span>
+                            )}
                           </div>
 
-                          <time
-                            className="inbox-time"
-                            dateTime={item.createdAt}
-                            title={new Date(item.createdAt).toLocaleString()}
-                          >
-                            {formatTimeAgo(item.createdAt)}
-                          </time>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleFeatured(item.id, item.featured)}
+                              className="bubble-button-secondary"
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: 11,
+                                gap: 4,
+                              }}
+                              title={item.featured ? "Remove from featured" : "Feature on landing page"}
+                            >
+                              <Star size={12} fill={item.featured ? "currentColor" : "none"} />
+                              {item.featured ? "Featured" : "Feature"}
+                            </button>
+                            <time
+                              className="inbox-time"
+                              dateTime={item.createdAt}
+                              title={new Date(item.createdAt).toLocaleString()}
+                            >
+                              {formatTimeAgo(item.createdAt)}
+                            </time>
+                          </div>
                         </div>
 
                         {item.comment ? (

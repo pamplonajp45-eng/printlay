@@ -23,7 +23,7 @@ import {
 } from "./lib/exportEngine";
 import { saveSession, loadSession, clearSessionStorage } from "./lib/storage";
 
-export default function App() {
+export default function App({ onNavigateHome }) {
   const [theme, setTheme] = useState(
     () => localStorage.getItem("printlay-theme") || "light",
   );
@@ -635,6 +635,7 @@ export default function App() {
         <Header
           photoCount={photos.length}
           theme={theme}
+          onNavigateHome={onNavigateHome}
           onToggleTheme={() =>
             setTheme((current) => (current === "light" ? "dark" : "light"))
           }

@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Heart,
   Info,
+  Home,
 } from "lucide-react";
 
 export default function Header({
@@ -22,6 +23,7 @@ export default function Header({
   onOpenInfo,
   theme,
   onToggleTheme,
+  onNavigateHome,
   sheets,
   isGenerating,
   onGenerateLayout,
@@ -88,33 +90,56 @@ export default function Header({
       >
         {/* Brand logo & title */}
         <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <img
-            src={
-              theme === "dark"
-                ? "/printlay-logo-dark.svg"
-                : "/printlay-logo.svg"
-            }
-            alt="PrintLay"
-            style={{
-              width: 52,
-              height: 52,
-              flexShrink: 0,
-              filter: "drop-shadow(0 6px 12px rgba(109, 95, 232, 0.22))",
+          <a
+            href="/"
+            onClick={(e) => {
+              if (onNavigateHome) {
+                e.preventDefault();
+                onNavigateHome();
+              }
             }}
-          />
+            title="Go to Home"
+            style={{ display: "flex", alignItems: "center", textDecoration: "none", cursor: "pointer" }}
+          >
+            <img
+              src={
+                theme === "dark"
+                  ? "/printlay-logo-dark.svg"
+                  : "/printlay-logo.svg"
+              }
+              alt="PrintLay"
+              style={{
+                width: 52,
+                height: 52,
+                flexShrink: 0,
+                filter: "drop-shadow(0 6px 12px rgba(109, 95, 232, 0.22))",
+              }}
+            />
+          </a>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <h1
-                className="heading"
-                style={{
-                  margin: 0,
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: "#3d3856",
+              <a
+                href="/"
+                onClick={(e) => {
+                  if (onNavigateHome) {
+                    e.preventDefault();
+                    onNavigateHome();
+                  }
                 }}
+                style={{ textDecoration: "none", color: "inherit" }}
               >
-                PrintLay
-              </h1>
+                <h1
+                  className="heading"
+                  style={{
+                    margin: 0,
+                    fontSize: 24,
+                    fontWeight: 700,
+                    color: "#3d3856",
+                  }}
+                >
+                  PrintLay
+                </h1>
+              </a>
               <span
                 style={{
                   background: "rgba(143, 127, 224, 0.15)",
@@ -216,6 +241,31 @@ export default function Header({
 
         {/* Info badges & Actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigateHome) {
+                onNavigateHome();
+              } else {
+                window.location.href = "/";
+              }
+            }}
+            className="bubble-button-secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 14px",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+            title="Go to Landing Page"
+            aria-label="Go to Landing Page"
+          >
+            <Home size={15} />
+            <span>Home</span>
+          </button>
           <SupportModal theme={theme} />
           <button
             type="button"
