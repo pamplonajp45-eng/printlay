@@ -1,3 +1,5 @@
+import { applyNotchMask } from "./notchShape";
+
 export const PHOTO_FILTERS = [
   { id: "none", name: "Normal", cssFilter: "none" },
   { id: "bw", name: "B&W", cssFilter: "grayscale(100%) contrast(115%)" },
@@ -21,7 +23,8 @@ export function loadImage(url) {
  * Crops an image to a canvas matching target preset dimensions and frame options.
  *
  * @param {HTMLImageElement} img - Loaded image element
- * @param {Object} preset - Photo preset object (from presets.js)
+ * @param {Object} preset - Photo preset object (from presets.js). If it has a
+ *   `notch`, that notch is cut out of the result (transparent pixels).
  * @param {Object} options - { dpi, cropSettings, filter, frameBgColor }
  * @returns {HTMLCanvasElement}
  */
@@ -202,6 +205,12 @@ export function cropToCanvas(img, preset, options = {}) {
   // Render freeform text overlays
   if (textOverlays && textOverlays.length > 0) {
     renderTextOverlays(ctx, textOverlays, targetWpx, targetHpx, dpi);
+  }
+
+  // Cut the notch out LAST so the photo, borders and text are all trimmed to
+  // the sticker shape. The notch becomes transparent pixels.
+  if (preset.notch) {
+    applyNotchMask(canvas, preset.notch, targetWpx / preset.wIn);
   }
 
   return canvas;

@@ -38,6 +38,10 @@ export default function App({ onNavigateHome }) {
     unit: "in",
   });
 
+  // Notch overrides coming from the PresetPicker's "Notch Dimensions" panel:
+  // { depthIn, widthIn, radiusIn, edge } or null (use the preset's own notch)
+  const [notch, setNotch] = useState(null);
+
   const [showCutGuides, setShowCutGuides] = useState(true);
   const [cutGuideStyle, setCutGuideStyle] = useState("dashed");
   const [cutGuideColor, setCutGuideColor] = useState("#b0b0be");
@@ -85,8 +89,13 @@ export default function App({ onNavigateHome }) {
       base =
         PHOTO_PRESETS.find((p) => p.id === photoPresetId) || PHOTO_PRESETS[0];
     }
-    return getOrientedPreset(base, photoOrientation);
-  }, [photoPresetId, customPhotoSize, photoOrientation]);
+    const oriented = getOrientedPreset(base, photoOrientation);
+
+    // Apply the user's notch edits (size + edge) on top of the preset's notch
+    return oriented.notch && notch
+      ? { ...oriented, notch: { ...oriented.notch, ...notch } }
+      : oriented;
+  }, [photoPresetId, customPhotoSize, photoOrientation, notch]);
 
   const activeSheetPreset = useMemo(() => {
     const base =
@@ -129,6 +138,7 @@ export default function App({ onNavigateHome }) {
           setSheetOrientation(session.sheetOrientation);
         if (session.customPhotoSize)
           setCustomPhotoSize(session.customPhotoSize);
+        if (session.notch) setNotch(session.notch);
         if (session.showCutGuides !== undefined)
           setShowCutGuides(session.showCutGuides);
         if (session.cutGuideStyle) setCutGuideStyle(session.cutGuideStyle);
@@ -166,6 +176,7 @@ export default function App({ onNavigateHome }) {
         photoOrientation,
         sheetOrientation,
         customPhotoSize,
+        notch,
         showCutGuides,
         cutGuideStyle,
         cutGuideColor,
@@ -187,6 +198,7 @@ export default function App({ onNavigateHome }) {
     photoOrientation,
     sheetOrientation,
     customPhotoSize,
+    notch,
     showCutGuides,
     cutGuideStyle,
     cutGuideColor,
@@ -780,6 +792,8 @@ export default function App({ onNavigateHome }) {
                     onChangePhotoOrientation={(o) => setPhotoOrientation(o)}
                     customPhotoSize={customPhotoSize}
                     onChangeCustomSize={(size) => setCustomPhotoSize(size)}
+                    onChangeNotch={setNotch}
+                    notchValue={notch}
                   />
                 )}
 

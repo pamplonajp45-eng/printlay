@@ -137,6 +137,26 @@ export const PHOTO_PRESETS = [
     aspectRatio: 6.0 / 8.0,
   },
   {
+    // Wide name tag with a rounded notch cut out of the bottom edge.
+    // Authored wide (4.92 × 3.17) with the notch on the bottom = "native" orientation.
+    id: "nametag-notch",
+    name: "Name Tag Decal",
+    description: "4.92 × 3.17 in with bottom notch",
+    wIn: 4.92,
+    hIn: 3.17,
+    wCm: 12.5,
+    hCm: 8.05,
+    isPolaroid: false,
+    aspectRatio: 4.92 / 3.17,
+    notch: {
+      edge: "bottom",
+      depthIn: 0.772,
+      widthIn: 1.36,
+      radiusIn: 0.22,
+      centered: true,
+    },
+  },
+  {
     id: "custom",
     name: "Custom Size...",
     description: "User-defined width & height",
@@ -237,6 +257,8 @@ export function getOrientedPreset(preset, orientation = "portrait") {
     hIn: orientedH,
     aspectRatio: orientedW / orientedH,
     imageArea,
+    // A notched shape turns with the sticker: bottom edge -> right edge
+    ...(preset.notch ? { notch: { ...preset.notch, edge: "right" } } : {}),
     orientation,
   };
 }
