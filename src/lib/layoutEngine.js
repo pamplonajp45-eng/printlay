@@ -1,6 +1,29 @@
 /**
  * Sheet Bin-Packing Layout & Cut-Guide Engine
  */
+import { getV5V6OutlinePath, V5_V6_SHEET_LAYOUT } from "./presets";
+
+/**
+ * True when the V5/V6 "3 stickers on one A4 landscape sheet" layout applies:
+ * a name-tag decal, an A4 sheet (either id) turned landscape, decal landscape.
+ */
+function isPyramid3Layout(photoPreset, sheetPreset, sheetWpx, sheetHpx, photoWpx, photoHpx) {
+  const isNameTag = photoPreset?.isNameTag || photoPreset?.id?.startsWith("nametag");
+  const isA4 = sheetPreset?.id === "a4" || sheetPreset?.id === "a4-landscape";
+  return Boolean(isNameTag && isA4 && sheetWpx > sheetHpx && photoWpx >= photoHpx);
+}
+
+/**
+ * Top-left position (px) of the i-th sticker (0..2) in the 3-up layout.
+ */
+function pyramid3Position(i, sheetWpx, photoWpx, dpi) {
+  const slot = V5_V6_SHEET_LAYOUT[i] || V5_V6_SHEET_LAYOUT[0];
+  const x = slot.xIn === null
+    ? Math.round((sheetWpx - photoWpx) / 2)
+    : Math.round(slot.xIn * dpi);
+  const y = Math.round(slot.yIn * dpi);
+  return { x, y, col: i % 2, row: Math.floor(i / 2) };
+}
 
 /**
  * Calculates layout dimensions and grid capacity info for UI display.
@@ -14,6 +37,23 @@ export function calculateGridInfo(photoPreset, sheetPreset, options = {}) {
   const sheetHpx = Math.round(sheetPreset.hIn * dpi);
   const marginPx = Math.round(marginIn * dpi);
   const gutterPx = Math.round(gutterIn * dpi);
+
+  const isPyramid3 = isPyramid3Layout(photoPreset, sheetPreset, sheetWpx, sheetHpx, photoWpx, photoHpx);
+
+  if (isPyramid3) {
+  return {
+    cols: 2,
+    rows: 2,
+    perSheet: V5_V6_SHEET_LAYOUT.length,
+    isPyramid3: true,
+    photoWpx,
+    photoHpx,
+    sheetWpx,
+    sheetHpx,
+    marginPx,
+    gutterPx,
+  };
+}
 
   const cols = Math.max(1, Math.floor((sheetWpx - 2 * marginPx + gutterPx) / (photoWpx + gutterPx)));
   const rows = sheetPreset.isContinuous
@@ -80,17 +120,24 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
   const marginPx = Math.round(marginIn * dpi);
   const gutterPx = Math.round(gutterIn * dpi);
 
-  const cols = Math.max(1, Math.floor((sheetWpx - 2 * marginPx + gutterPx) / (photoWpx + gutterPx)));
+  const isPyramid3 = isPyramid3Layout(photoPreset, sheetPreset, sheetWpx, sheetHpx, photoWpx, photoHpx);
 
   let rows;
   let perSheet;
+  let cols;
 
-  if (sheetPreset.isContinuous) {
+  if (isPyramid3) {
+    cols = 2;
+    rows = 2;
+    perSheet = V5_V6_SHEET_LAYOUT.length;
+  } else if (sheetPreset.isContinuous) {
+    cols = Math.max(1, Math.floor((sheetWpx - 2 * marginPx + gutterPx) / (photoWpx + gutterPx)));
     rows = Math.ceil(croppedCanvases.length / cols);
     perSheet = croppedCanvases.length;
     const requiredGridH = rows * photoHpx + (rows - 1) * gutterPx;
     sheetHpx = Math.max(sheetHpx, requiredGridH + 2 * marginPx);
   } else {
+    cols = Math.max(1, Math.floor((sheetWpx - 2 * marginPx + gutterPx) / (photoWpx + gutterPx)));
     rows = Math.max(1, Math.floor((sheetHpx - 2 * marginPx + gutterPx) / (photoHpx + gutterPx)));
     perSheet = cols * rows;
   }
@@ -138,11 +185,16 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     const layoutCells = [];
 
     sheetSlice.forEach((croppedCanvas, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = Math.round(offsetX + col * (photoWpx + gutterPx));
-      const rowStep = photoHpx + gutterPx + (useLabelStrips ? labelStripH : 0);
-      const y = Math.round(offsetY + row * rowStep);
+      let x, y, col, row;
+      if (isPyramid3) {
+        ({ x, y, col, row } = pyramid3Position(i, sheetWpx, photoWpx, dpi));
+      } else {
+        col = i % cols;
+        row = Math.floor(i / cols);
+        x = Math.round(offsetX + col * (photoWpx + gutterPx));
+        const rowStep = photoHpx + gutterPx + (useLabelStrips ? labelStripH : 0);
+        y = Math.round(offsetY + row * rowStep);
+      }
 
       // Draw photo canvas onto sheet
       ctx.drawImage(croppedCanvas, x, y);
@@ -171,8 +223,8 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     if (showSequenceLabels) {
       layoutCells.forEach((cell) => {
         const itemNumber = cell.index + 1;
-        const photoName =
-          metaSlice[cell.row * cols + cell.col]?.name || `#${itemNumber}`;
+        // Use the cell's own photo (row * cols + col is wrong for the 3-up layout)
+        const photoName = cell.photoItem?.name || `#${itemNumber}`;
         drawSequenceLabel(
           ctx,
           cell.x,
@@ -192,7 +244,7 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     // that with zero gutter the neighbouring photo can never paint over a
     // guide line on a shared edge (the "missing lines at 0 spacing" bug).
     if (showCutGuides && cutGuideStyle !== "none") {
-      if (gutterPx === 0 && cutGuideStyle !== "corner") {
+      if (!isPyramid3 && gutterPx === 0 && cutGuideStyle !== "corner") {
         // Zero gutter: cells share edges, so draw the grid as continuous
         // separator lines instead of overlapping per-cell rectangles.
         drawGridSeparators(
@@ -209,6 +261,20 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
           cutGuideOpacity,
           photoHpx + (useLabelStrips ? labelStripH : 0),
         );
+        if (photoPreset.hole) {
+          layoutCells.forEach((cell) =>
+            drawHoleCutGuide(
+              ctx,
+              cell.x,
+              cell.y,
+              photoPreset.hole,
+              cutGuideStyle,
+              dpi,
+              cutGuideColor,
+              cutGuideOpacity,
+            ),
+          );
+        }
       } else {
         layoutCells.forEach((cell) =>
           drawCutGuides(
@@ -221,6 +287,8 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
             dpi,
             cutGuideColor,
             cutGuideOpacity,
+            photoPreset.hole,
+            photoPreset,
           ),
         );
       }
@@ -340,7 +408,38 @@ function drawGridSeparators(ctx, x0, y0, cols, rows, w, h, style, dpi, guideColo
 /**
  * Draws cut-guide lines or corner marks around a photo cell.
  */
-function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity) {
+function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, hole = null, photoPreset = null) {
+  if (photoPreset?.hasDieCutContour && w >= h) {
+  ctx.save();
+  ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
+  ctx.strokeStyle = guideColor || "#b0b0be";
+
+  const linePx = Math.max(1, Math.round(dpi * 0.005));
+  const dashLen = Math.round(dpi * 0.02);
+  const gapLen = Math.round(dpi * 0.015);
+
+  ctx.translate(x, y);
+  ctx.scale(dpi, dpi);
+
+  // The context is now scaled by dpi, so line width and dashes
+  // must be divided by dpi to come out as the intended pixel sizes.
+  ctx.lineWidth = linePx / dpi;
+  if (style === "dashed") {
+    ctx.setLineDash([dashLen / dpi, gapLen / dpi]);
+  } else {
+    ctx.setLineDash([]);
+  }
+
+  const outlinePath = new Path2D(getV5V6OutlinePath(photoPreset.wIn, photoPreset.hIn));
+  ctx.stroke(outlinePath);
+  ctx.restore();
+
+  if (hole) {
+    drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
+  }
+  return;
+}
+
   ctx.save();
   ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
   ctx.strokeStyle = guideColor || "#b0b0be";
@@ -399,6 +498,44 @@ function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity) {
     ctx.stroke();
   }
 
+  ctx.restore();
+
+  if (hole) {
+    drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
+  }
+}
+
+/**
+ * Draws cut-guide line around an internal window hole.
+ */
+function drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity) {
+  if (!hole) return;
+  ctx.save();
+  ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
+  ctx.strokeStyle = guideColor || "#b0b0be";
+  ctx.lineWidth = Math.max(1, Math.round(dpi * 0.005));
+
+  const dashLen = Math.round(dpi * 0.02);
+  const gapLen = Math.round(dpi * 0.015);
+  if (style === "dashed") {
+    ctx.setLineDash([dashLen, gapLen]);
+  } else {
+    ctx.setLineDash([]);
+  }
+
+  const hx = Math.round(x + hole.xIn * dpi);
+  const hy = Math.round(y + hole.yIn * dpi);
+  const hw = Math.round(hole.widthIn * dpi);
+  const hh = Math.round(hole.heightIn * dpi);
+  const hr = Math.round((hole.radiusIn || 0) * dpi);
+
+  ctx.beginPath();
+  if (hr > 0 && typeof ctx.roundRect === "function") {
+    ctx.roundRect(hx - 0.5, hy - 0.5, hw + 1, hh + 1, hr);
+  } else {
+    ctx.rect(hx - 0.5, hy - 0.5, hw + 1, hh + 1);
+  }
+  ctx.stroke();
   ctx.restore();
 }
 

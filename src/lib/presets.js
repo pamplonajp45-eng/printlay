@@ -4,6 +4,68 @@
 
 export const DEFAULT_DPI = 300;
 
+// ---------------------------------------------------------------------------
+// Black Teo (XBLACK) vape name tag decals
+// ---------------------------------------------------------------------------
+// Shared outer size. Authored wide (4.808 x 3.092) with the cutout on the
+// bottom = "native" orientation.
+const NAME_TAG_BASE = {
+  wIn: 4.808,
+  hIn: 3.092,
+  wCm: 12.21,
+  hCm: 7.85,
+  isPolaroid: false,
+  aspectRatio: 4.808 / 3.092,
+};
+
+// V2-V4: notch that opens onto the bottom edge.
+// Hand-measured: notch depth = height 3.092 - notch top to top edge 2.309.
+const NAME_TAG_NOTCH = {
+  edge: "bottom",
+  depthIn: 0.783,
+  widthIn: 1.265,
+  radiusIn: 0.133,
+  centered: true,
+};
+
+// ---------------------------------------------------------------------------
+// Black Teo V5 & V6 exact template dimensions & cutouts (from vector PDF template)
+// ---------------------------------------------------------------------------
+const V5_V6_BASE = {
+  wIn: 4.980,
+  hIn: 3.332,
+  wCm: 12.65,
+  hCm: 8.46,
+  isPolaroid: false,
+  aspectRatio: 4.980 / 3.332,
+  isNameTag: true,
+  hasDieCutContour: true,
+};
+
+const V5_V6_HOLE = {
+  xIn: 1.820,
+  yIn: 2.362,
+  widthIn: 1.340,
+  heightIn: 0.855,
+  radiusIn: 0.104,
+};
+
+/**
+ * 3-up layout for V5/V6 on ONE A4 LANDSCAPE sheet (11.693 x 8.267 in):
+ * one sticker centered on top, two side by side below.
+ * xIn: null means "center horizontally on the sheet".
+ * Each entry is the sticker's top-left corner in inches.
+ */
+export const V5_V6_SHEET_LAYOUT = [
+  { xIn: 0.817, yIn: 0.652 }, // top-left
+  { xIn: 5.897, yIn: 0.652 }, // top-right
+  { xIn: 0.817, yIn: 4.284 }, // bottom-left
+  { xIn: 5.897, yIn: 4.284 }, // bottom-right
+];
+
+// Legacy fallback reference
+const NAME_TAG_HOLE = V5_V6_HOLE;
+
 export const PHOTO_PRESETS = [
   {
     id: "polaroidClassic",
@@ -137,24 +199,28 @@ export const PHOTO_PRESETS = [
     aspectRatio: 6.0 / 8.0,
   },
   {
-    // Wide name tag with a rounded notch cut out of the bottom edge.
-    // Authored wide (4.92 × 3.17) with the notch on the bottom = "native" orientation.
+    // Keep this id: existing code may compare against "nametag-notch".
+    ...NAME_TAG_BASE,
     id: "nametag-notch",
-    name: "Name Tag Decal",
-    description: "4.92 × 3.17 in with bottom notch",
-    wIn: 4.92,
-    hIn: 3.17,
-    wCm: 12.5,
-    hCm: 8.05,
-    isPolaroid: false,
-    aspectRatio: 4.92 / 3.17,
-    notch: {
-      edge: "bottom",
-      depthIn: 0.772,
-      widthIn: 1.36,
-      radiusIn: 0.22,
-      centered: true,
-    },
+    name: "BLCK V2-V4 Name Tag",
+    description: "4.808 × 3.092 in wrap-around decal with bottom notch (V2, V3, V4)",
+    notch: NAME_TAG_NOTCH,
+  },
+  {
+    ...V5_V6_BASE,
+    id: "nametag-hole-v5",
+    name: "BLCK V5 Name Tag",
+    description: "4.980 × 3.332 in die-cut wrap decal with window hole (3 per A4 landscape)",
+    hole: V5_V6_HOLE,
+    hasDieCutContour: true,
+  },
+  {
+    ...V5_V6_BASE,
+    id: "nametag-hole-v6",
+    name: "BLCK V6 Name Tag",
+    description: "4.980 × 3.332 in die-cut wrap decal with window hole (3 per A4 landscape)",
+    hole: V5_V6_HOLE,
+    hasDieCutContour: true,
   },
   {
     id: "custom",
@@ -180,6 +246,16 @@ export const SHEET_PRESETS = [
     wCm: 21.0,
     hCm: 29.7,
   },
+ // SHEET_PRESETS entry
+{
+  id: "a4-landscape",
+  name: "A4 Landscape (4 stickers)",
+  description: "11.69 × 8.27 in (29.7 × 21 cm), used for the V5/V6 2×2 layout",
+  wIn: 11.693,
+  hIn: 8.267,
+  wCm: 29.7,
+  hCm: 21.0,
+},
   {
     id: "letter",
     name: "US Letter",
@@ -259,8 +335,113 @@ export function getOrientedPreset(preset, orientation = "portrait") {
     imageArea,
     // A notched shape turns with the sticker: bottom edge -> right edge
     ...(preset.notch ? { notch: { ...preset.notch, edge: "right" } } : {}),
+    // A hole turns the same way (90° counter-clockwise, like bottom -> right).
+    // Point (x, y) in the wide layout becomes (y, baseW - x) in the turned one,
+    // so the hole's top-left corner is (yIn, baseW - xIn - widthIn) and its
+    // width and height swap.
+    ...(preset.hole
+      ? {
+          hole: {
+            ...preset.hole,
+            xIn: preset.hole.yIn,
+            yIn: baseW - preset.hole.xIn - preset.hole.widthIn,
+            widthIn: preset.hole.heightIn,
+            heightIn: preset.hole.widthIn,
+          },
+        }
+      : {}),
     orientation,
   };
+}
+
+/**
+ * SVG path string (in inches) for a rounded rectangle.
+ */
+export function roundedRectPath(x, y, w, h, r = 0) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  if (rr === 0) return `M${x} ${y}H${x + w}V${y + h}H${x}Z`;
+  return (
+    `M${x + rr} ${y}H${x + w - rr}` +
+    `A${rr} ${rr} 0 0 1 ${x + w} ${y + rr}V${y + h - rr}` +
+    `A${rr} ${rr} 0 0 1 ${x + w - rr} ${y + h}H${x + rr}` +
+    `A${rr} ${rr} 0 0 1 ${x} ${y + h - rr}V${y + rr}` +
+    `A${rr} ${rr} 0 0 1 ${x + rr} ${y}Z`
+  );
+}
+
+/**
+ * SVG path string (in inches) for the Black Teo V5/V6 die-cut outline,
+ * matching the vector template:
+ *  - full-height tabs at both ends (square outer corner, rounded inner corner)
+ *  - low shoulders with a shallow circular dip each
+ *  - a center tab with both top corners rounded
+ * Tweak `depth` / `halfChord` / `dipX` if the dips look off against the template.
+ */
+export function getV5V6OutlinePath(wIn = 4.980, hIn = 3.332) {
+  const r = 0.13;            // rounded tab corners
+  const shoulderY = 0.19;    // how far the shoulders sit below the top
+  const sideTab = 0.866;     // width of each end tab
+  const centerL = 1.794;     // center tab left edge
+  const centerR = wIn - centerL; // symmetric
+  const dipX = 1.33;         // x of the dip center from each side
+  const halfChord = 0.17;    // half the dip's width
+  const depth = 0.09;        // how deep the dip bites down
+
+  // radius of a circular arc from its half-width and depth
+  const R = (halfChord ** 2 + depth ** 2) / (2 * depth);
+
+  const d1L = dipX - halfChord, d1R = dipX + halfChord;
+  const d2L = wIn - dipX - halfChord, d2R = wIn - dipX + halfChord;
+  const rightTab = wIn - sideTab;
+
+  return [
+    `M 0 0`,
+    `H ${sideTab - r}`,
+    `A ${r} ${r} 0 0 1 ${sideTab} ${r}`,
+    `V ${shoulderY}`,
+    `H ${d1L}`,
+    `A ${R} ${R} 0 0 0 ${d1R} ${shoulderY}`,
+    `H ${centerL}`,
+    `V ${r}`,
+    `A ${r} ${r} 0 0 1 ${centerL + r} 0`,
+    `H ${centerR - r}`,
+    `A ${r} ${r} 0 0 1 ${centerR} ${r}`,
+    `V ${shoulderY}`,
+    `H ${d2L}`,
+    `A ${R} ${R} 0 0 0 ${d2R} ${shoulderY}`,
+    `H ${rightTab}`,
+    `V ${r}`,
+    `A ${r} ${r} 0 0 1 ${rightTab + r} 0`,
+    `H ${wIn}`,
+    `V ${hIn}`,
+    `H 0`,
+    `Z`,
+  ].join(" ");
+}
+
+/**
+ * Path for a decal that has an enclosed hole: the outer outline plus the hole.
+ * Draw or clip it with the "evenodd" fill rule so the hole is see-through:
+ *   <path d={getHoleCutoutPath(orientedPreset)} fillRule="evenodd" />
+ *   ctx.clip(new Path2D(d), "evenodd")  // canvas version (scale first)
+ * Pass an oriented preset (from getOrientedPreset). Returns null when the
+ * preset has no hole.
+ */
+export function getHoleCutoutPath(orientedPreset) {
+  const hole = orientedPreset?.hole;
+  if (!hole) return null;
+  const isNativeWide = (orientedPreset.wIn || 0) >= (orientedPreset.hIn || 0);
+  const outer = orientedPreset.hasDieCutContour && isNativeWide
+    ? getV5V6OutlinePath(orientedPreset.wIn, orientedPreset.hIn)
+    : roundedRectPath(0, 0, orientedPreset.wIn, orientedPreset.hIn, 0);
+  const inner = roundedRectPath(
+    hole.xIn,
+    hole.yIn,
+    hole.widthIn,
+    hole.heightIn,
+    hole.radiusIn
+  );
+  return `${outer}${inner}`;
 }
 
 export function inToPx(inches, dpi = DEFAULT_DPI) {

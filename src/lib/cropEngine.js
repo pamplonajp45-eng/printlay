@@ -1,4 +1,5 @@
 import { applyNotchMask } from "./notchShape";
+import { getHoleCutoutPath } from "./presets";
 
 export const PHOTO_FILTERS = [
   { id: "none", name: "Normal", cssFilter: "none" },
@@ -213,6 +214,36 @@ export function cropToCanvas(img, preset, options = {}) {
     applyNotchMask(canvas, preset.notch, targetWpx / preset.wIn);
   }
 
+  // Cut the enclosed hole out (for V5 / V6) so the window is see-through.
+  if (preset.hole) {
+    applyHoleMask(canvas, preset, targetWpx / preset.wIn);
+  }
+
+  return canvas;
+}
+
+/**
+ * Cuts out an enclosed hole from the decal canvas using the evenodd fill rule,
+ * leaving the hole as transparent pixels.
+ *
+ * @param {HTMLCanvasElement} canvas
+ * @param {Object} preset - Oriented preset with a `hole` definition
+ * @param {number} pxPerIn - Pixels per inch
+ * @returns {HTMLCanvasElement}
+ */
+export function applyHoleMask(canvas, preset, pxPerIn) {
+  if (!preset?.hole) return canvas;
+  const pathStr = getHoleCutoutPath(preset);
+  if (!pathStr) return canvas;
+
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.fillStyle = "#000";
+  ctx.scale(pxPerIn, pxPerIn);
+  const path = new Path2D(pathStr);
+  ctx.fill(path, "evenodd");
+  ctx.restore();
   return canvas;
 }
 

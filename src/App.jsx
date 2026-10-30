@@ -10,7 +10,8 @@ import CropModal from "./components/CropModal";
 import GuideModal from "./components/GuideModal";
 import TextControls from "./components/TextControls";
 import FeedbackPrompt from "./components/FeedbackPrompt";
-import { Upload, Image, FileText, Sliders, X, Type } from "lucide-react";
+import StickerMockup3D from "./components/StickerMockup3D";
+import { Upload, Image, FileText, Sliders, X, Type, Box } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
 import { cropToCanvas, loadImage } from "./lib/cropEngine";
@@ -138,7 +139,6 @@ export default function App({ onNavigateHome }) {
           setSheetOrientation(session.sheetOrientation);
         if (session.customPhotoSize)
           setCustomPhotoSize(session.customPhotoSize);
-        if (session.notch) setNotch(session.notch);
         if (session.showCutGuides !== undefined)
           setShowCutGuides(session.showCutGuides);
         if (session.cutGuideStyle) setCutGuideStyle(session.cutGuideStyle);
@@ -176,7 +176,6 @@ export default function App({ onNavigateHome }) {
         photoOrientation,
         sheetOrientation,
         customPhotoSize,
-        notch,
         showCutGuides,
         cutGuideStyle,
         cutGuideColor,
@@ -198,7 +197,6 @@ export default function App({ onNavigateHome }) {
     photoOrientation,
     sheetOrientation,
     customPhotoSize,
-    notch,
     showCutGuides,
     cutGuideStyle,
     cutGuideColor,
@@ -735,6 +733,19 @@ export default function App({ onNavigateHome }) {
                   : "Add text"}
               </span>
             </button>
+
+            <button
+              type="button"
+              className={`tool-rail-button ${activeTab === "mockup" ? "active" : ""}`}
+              onClick={() =>
+                setActiveTab(activeTab === "mockup" ? null : "mockup")
+              }
+              title="3D Wrap Preview"
+            >
+              <Box size={19} />
+              <span className="tool-rail-label">3D Preview</span>
+              <span className="tool-rail-badge">Wrap</span>
+            </button>
           </nav>
 
           {/* Expandable Settings Sub-Sidebar Drawer */}
@@ -754,6 +765,7 @@ export default function App({ onNavigateHome }) {
                   {activeTab === "sheetPreset" && "Output Paper / Sheet Size"}
                   {activeTab === "layout" && "Layout & Cut-Guide Settings"}
                   {activeTab === "text" && "Freeform Text Editor"}
+                  {activeTab === "mockup" && "3D Wrap Preview"}
                 </h4>
                 <button
                   type="button"
@@ -787,7 +799,13 @@ export default function App({ onNavigateHome }) {
                 {activeTab === "photoPreset" && (
                   <PresetPicker
                     selectedPresetId={photoPresetId}
-                    onSelectPreset={(id) => setPhotoPresetId(id)}
+                    onSelectPreset={(id) => {
+                      setPhotoPresetId(id);
+                      if (id.startsWith("nametag")) {
+                        setPhotoOrientation("landscape");
+                        setSheetOrientation("landscape");
+                      }
+                    }}
                     photoOrientation={photoOrientation}
                     onChangePhotoOrientation={(o) => setPhotoOrientation(o)}
                     customPhotoSize={customPhotoSize}
@@ -838,6 +856,14 @@ export default function App({ onNavigateHome }) {
                     onApplyTextToAll={handleApplyTextToAll}
                     onRemoveTextFromAll={handleRemoveTextFromAll}
                     onPreviewChange={setTextPreview}
+                  />
+                )}
+
+                {activeTab === "mockup" && (
+                  <StickerMockup3D
+                    photos={photos}
+                    photoPreset={activePhotoPreset}
+                    frameBgColor={frameBgColor}
                   />
                 )}
               </div>
