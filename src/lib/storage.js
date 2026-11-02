@@ -46,7 +46,7 @@ export async function saveSession(state) {
       sheetPresetId: state.sheetPresetId,
       photoOrientation: state.photoOrientation || "portrait",
       sheetOrientation: state.sheetOrientation || "portrait",
-      customPhotoSize: state.customPhotoSize,
+      custom: state.custom,
       showCutGuides: state.showCutGuides,
       cutGuideStyle: state.cutGuideStyle || "dashed",
       marginIn: state.marginIn,

@@ -1,10 +1,10 @@
 /**
  * Sheet Bin-Packing Layout & Cut-Guide Engine
  */
-import { getV5V6OutlinePath, V5_V6_SHEET_LAYOUT } from "./presets";
+import { getV5V6OutlinePath, V5_V6_SHEET_LAYOUT, isShapedPreset, getShapePath } from "./presets";
 
 /**
- * True when the V5/V6 "3 stickers on one A4 landscape sheet" layout applies:
+ * True when the V5/V6 "4 stickers on one A4 landscape sheet" (2x2) layout applies:
  * a name-tag decal, an A4 sheet (either id) turned landscape, decal landscape.
  */
 function isPyramid3Layout(photoPreset, sheetPreset, sheetWpx, sheetHpx, photoWpx, photoHpx) {
@@ -14,7 +14,18 @@ function isPyramid3Layout(photoPreset, sheetPreset, sheetWpx, sheetHpx, photoWpx
 }
 
 /**
- * Top-left position (px) of the i-th sticker (0..2) in the 3-up layout.
+ * Path2D of the custom shape in canvas pixels. The inch-to-pixel scaling is
+ * baked into the path, so stroke widths and dashes are not affected.
+ */
+function shapePath2D(preset, x, y, wPx, hPx, dpi) {
+  const d = getShapePath(preset.shape, wPx / dpi, hPx / dpi, preset.cornerRadiusIn || 0);
+  const p = new Path2D();
+  p.addPath(new Path2D(d), new DOMMatrix([dpi, 0, 0, dpi, x, y]));
+  return p;
+}
+
+/**
+ * Top-left position (px) of the i-th sticker in the V5/V6 2x2 layout.
  */
 function pyramid3Position(i, sheetWpx, photoWpx, dpi) {
   const slot = V5_V6_SHEET_LAYOUT[i] || V5_V6_SHEET_LAYOUT[0];
@@ -41,19 +52,19 @@ export function calculateGridInfo(photoPreset, sheetPreset, options = {}) {
   const isPyramid3 = isPyramid3Layout(photoPreset, sheetPreset, sheetWpx, sheetHpx, photoWpx, photoHpx);
 
   if (isPyramid3) {
-  return {
-    cols: 2,
-    rows: 2,
-    perSheet: V5_V6_SHEET_LAYOUT.length,
-    isPyramid3: true,
-    photoWpx,
-    photoHpx,
-    sheetWpx,
-    sheetHpx,
-    marginPx,
-    gutterPx,
-  };
-}
+    return {
+      cols: 2,
+      rows: 2,
+      perSheet: V5_V6_SHEET_LAYOUT.length,
+      isPyramid3: true,
+      photoWpx,
+      photoHpx,
+      sheetWpx,
+      sheetHpx,
+      marginPx,
+      gutterPx,
+    };
+  }
 
   const cols = Math.max(1, Math.floor((sheetWpx - 2 * marginPx + gutterPx) / (photoWpx + gutterPx)));
   const rows = sheetPreset.isContinuous
@@ -196,8 +207,15 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
         y = Math.round(offsetY + row * rowStep);
       }
 
-      // Draw photo canvas onto sheet
-      ctx.drawImage(croppedCanvas, x, y);
+      // Draw photo canvas onto sheet (clipped to the custom shape if any)
+      if (isShapedPreset(photoPreset)) {
+        ctx.save();
+        ctx.clip(shapePath2D(photoPreset, x, y, photoWpx, photoHpx, dpi));
+        ctx.drawImage(croppedCanvas, x, y);
+        ctx.restore();
+      } else {
+        ctx.drawImage(croppedCanvas, x, y);
+      }
 
       // Store layout cell bounds for interactive drag & click handlers
       layoutCells.push({
@@ -223,7 +241,7 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     if (showSequenceLabels) {
       layoutCells.forEach((cell) => {
         const itemNumber = cell.index + 1;
-        // Use the cell's own photo (row * cols + col is wrong for the 3-up layout)
+        // Use the cell's own photo (row * cols + col is wrong for the 2x2 layout)
         const photoName = cell.photoItem?.name || `#${itemNumber}`;
         drawSequenceLabel(
           ctx,
@@ -244,7 +262,12 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     // that with zero gutter the neighbouring photo can never paint over a
     // guide line on a shared edge (the "missing lines at 0 spacing" bug).
     if (showCutGuides && cutGuideStyle !== "none") {
-      if (!isPyramid3 && gutterPx === 0 && cutGuideStyle !== "corner") {
+      if (
+        !isPyramid3 &&
+        !isShapedPreset(photoPreset) &&
+        gutterPx === 0 &&
+        cutGuideStyle !== "corner"
+      ) {
         // Zero gutter: cells share edges, so draw the grid as continuous
         // separator lines instead of overlapping per-cell rectangles.
         drawGridSeparators(
@@ -409,36 +432,53 @@ function drawGridSeparators(ctx, x0, y0, cols, rows, w, h, style, dpi, guideColo
  * Draws cut-guide lines or corner marks around a photo cell.
  */
 function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, hole = null, photoPreset = null) {
+  // Custom shapes (circle / rounded): stroke the shape outline itself
+  if (isShapedPreset(photoPreset)) {
+    ctx.save();
+    ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
+    ctx.strokeStyle = guideColor || "#b0b0be";
+    ctx.lineWidth = Math.max(1, Math.round(dpi * 0.005));
+    if (style === "dashed") {
+      ctx.setLineDash([Math.round(dpi * 0.02), Math.round(dpi * 0.015)]);
+    } else {
+      ctx.setLineDash([]); // solid, and "corner" falls back to a solid outline
+    }
+    ctx.stroke(shapePath2D(photoPreset, x, y, w, h, dpi));
+    ctx.restore();
+    return;
+  }
+
+  // V5/V6 die-cut outline
   if (photoPreset?.hasDieCutContour && w >= h) {
-  ctx.save();
-  ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
-  ctx.strokeStyle = guideColor || "#b0b0be";
+    ctx.save();
+    ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
+    ctx.strokeStyle = guideColor || "#b0b0be";
 
-  const linePx = Math.max(1, Math.round(dpi * 0.005));
-  const dashLen = Math.round(dpi * 0.02);
-  const gapLen = Math.round(dpi * 0.015);
+    const linePx = Math.max(1, Math.round(dpi * 0.005));
+    const dashLen = Math.round(dpi * 0.02);
+    const gapLen = Math.round(dpi * 0.015);
 
-  ctx.translate(x, y);
-  ctx.scale(dpi, dpi);
+    ctx.translate(x, y);
+    ctx.scale(dpi, dpi);
 
-  // The context is now scaled by dpi, so line width and dashes
-  // must be divided by dpi to come out as the intended pixel sizes.
-  ctx.lineWidth = linePx / dpi;
-  if (style === "dashed") {
-    ctx.setLineDash([dashLen / dpi, gapLen / dpi]);
-  } else {
-    ctx.setLineDash([]);
+    // The context is now scaled by dpi, so line width and dashes
+    // must be divided by dpi to come out as the intended pixel sizes.
+    ctx.lineWidth = linePx / dpi;
+    if (style === "dashed") {
+      ctx.setLineDash([dashLen / dpi, gapLen / dpi]);
+    } else {
+      ctx.setLineDash([]);
+    }
+
+    const outlinePath = new Path2D(getV5V6OutlinePath(photoPreset.wIn, photoPreset.hIn));
+    ctx.stroke(outlinePath);
+    ctx.restore();
+
+    if (hole) {
+      drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
+    }
+    return;
   }
-
-  const outlinePath = new Path2D(getV5V6OutlinePath(photoPreset.wIn, photoPreset.hIn));
-  ctx.stroke(outlinePath);
-  ctx.restore();
-
-  if (hole) {
-    drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
-  }
-  return;
-}
 
   ctx.save();
   ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;

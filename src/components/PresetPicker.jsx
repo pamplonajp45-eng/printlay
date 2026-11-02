@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { PHOTO_PRESETS, cmToIn, mmToIn } from "../lib/presets";
 import { Sliders, RectangleVertical, RectangleHorizontal, Scissors } from "lucide-react";
+import CustomSizePanel from "./CustomSizePanel";
 
 // ---- unit helpers (inches is the source of truth everywhere) ----
 const toIn = (val, unit) =>
@@ -80,14 +81,13 @@ export default function PresetPicker({
   onSelectPreset,
   photoOrientation = "portrait",
   onChangePhotoOrientation,
-  customPhotoSize,
-  onChangeCustomSize,
+  custom,
+  onChangeCustom,
+
   onChangeNotch, // receives { depthIn, widthIn, radiusIn, edge } or null
   notchValue, // the parent's current notch, so edits survive closing/reopening this panel
 }) {
   const [unit, setUnit] = useState("in");
-  const [customW, setCustomW] = useState(customPhotoSize?.wIn || 3.0);
-  const [customH, setCustomH] = useState(customPhotoSize?.hIn || 4.0);
 
   const selectedPreset = PHOTO_PRESETS.find((p) => p.id === selectedPresetId);
   const presetNotch = selectedPreset?.notch || null;
@@ -301,49 +301,9 @@ export default function PresetPicker({
         })}
       </div>
 
-      {/* Custom size form if Custom preset is selected */}
+      {/* Custom size panel if Custom preset is selected */}
       {selectedPresetId === "custom" && (
-        <div style={panelStyle}>
-          <div style={panelTitleStyle}>
-            <Sliders size={16} color="#8f7fe0" /> Custom Photo Dimensions
-          </div>
-
-          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-            <UnitSelector unit={unit} onChange={handleUnitChange} />
-
-            <label style={labelStyle}>
-              Width:
-              <input
-                type="number"
-                step="0.1"
-                min="0.5"
-                max={MAX_BY_UNIT[unit]}
-                value={customW}
-                onChange={(e) => {
-                  setCustomW(e.target.value);
-                  handleCustomChange(e.target.value, customH, unit);
-                }}
-                style={inputStyle}
-              />
-            </label>
-
-            <label style={labelStyle}>
-              Height:
-              <input
-                type="number"
-                step="0.1"
-                min="0.5"
-                max={MAX_BY_UNIT[unit]}
-                value={customH}
-                onChange={(e) => {
-                  setCustomH(e.target.value);
-                  handleCustomChange(customW, e.target.value, unit);
-                }}
-                style={inputStyle}
-              />
-            </label>
-          </div>
-        </div>
+        <CustomSizePanel value={custom || { widthIn: 3, heightIn: 4, shape: "rect", cornerRadiusIn: 0.5 }} onChange={onChangeCustom} />
       )}
 
       {/* NEW: Notch panel, shown when the selected preset has a notch */}

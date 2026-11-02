@@ -222,18 +222,20 @@ export const PHOTO_PRESETS = [
     hole: V5_V6_HOLE,
     hasDieCutContour: true,
   },
-  {
-    id: "custom",
-    name: "Custom Size...",
-    description: "User-defined width & height",
-    wIn: 3.0,
-    hIn: 4.0,
-    wCm: 7.62,
-    hCm: 10.16,
-    isPolaroid: false,
-    aspectRatio: 0.75,
-    isCustom: true,
-  }
+ {
+  id: "custom",
+  name: "Custom Size...",
+  description: "User-defined width & height, with optional rounded or circle shape",
+  wIn: 3.0,
+  hIn: 4.0,
+  wCm: 7.62,
+  hCm: 10.16,
+  isPolaroid: false,
+  aspectRatio: 0.75,
+  isCustom: true,
+  shape: "rect",        // "rect" | "rounded" | "circle"
+  cornerRadiusIn: 0.5,  // only used when shape is "rounded"
+}
 ];
 
 export const SHEET_PRESETS = [
@@ -367,6 +369,27 @@ export function roundedRectPath(x, y, w, h, r = 0) {
     `A${rr} ${rr} 0 0 1 ${x} ${y + h - rr}V${y + rr}` +
     `A${rr} ${rr} 0 0 1 ${x + rr} ${y}Z`
   );
+}
+export function isShapedPreset(preset) {
+  return preset?.shape === "circle" || preset?.shape === "rounded";
+}
+
+/**
+ * SVG path (in inches) for a custom photo shape, with the top-left at 0,0.
+ * circle  -> ellipse that touches all four sides (a circle when w === h)
+ * rounded -> rectangle with rounded corners (radius is clamped to fit)
+ */
+export function getShapePath(shape, wIn, hIn, radiusIn = 0) {
+  if (shape === "circle") {
+    const rx = wIn / 2;
+    const ry = hIn / 2;
+    return (
+      `M0 ${ry}` +
+      `A${rx} ${ry} 0 1 1 ${wIn} ${ry}` +
+      `A${rx} ${ry} 0 1 1 0 ${ry}Z`
+    );
+  }
+  return roundedRectPath(0, 0, wIn, hIn, shape === "rounded" ? radiusIn : 0);
 }
 
 /**

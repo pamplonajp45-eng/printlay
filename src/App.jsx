@@ -33,10 +33,11 @@ export default function App({ onNavigateHome }) {
   const [sheetPresetId, setSheetPresetId] = useState("a4");
   const [photoOrientation, setPhotoOrientation] = useState("portrait");
   const [sheetOrientation, setSheetOrientation] = useState("portrait");
-  const [customPhotoSize, setCustomPhotoSize] = useState({
-    wIn: 3.0,
-    hIn: 4.0,
-    unit: "in",
+  const [custom, setCustom] = useState({
+    widthIn: 3.0,
+    heightIn: 4.0,
+    shape: "rect",
+    cornerRadiusIn: 0.5,
   });
 
   // Notch overrides coming from the PresetPicker's "Notch Dimensions" panel:
@@ -79,11 +80,13 @@ export default function App({ onNavigateHome }) {
       base = {
         id: "custom",
         name: "Custom Size",
-        wIn: customPhotoSize.wIn,
-        hIn: customPhotoSize.hIn,
-        customWidthIn: customPhotoSize.wIn,
-        customHeightIn: customPhotoSize.hIn,
-        aspectRatio: customPhotoSize.wIn / customPhotoSize.hIn,
+        wIn: custom.widthIn,
+        hIn: custom.heightIn,
+        customWidthIn: custom.widthIn,
+        customHeightIn: custom.heightIn,
+        shape: custom.shape,
+        cornerRadiusIn: custom.cornerRadiusIn,
+        aspectRatio: custom.widthIn / custom.heightIn,
         isPolaroid: false,
       };
     } else {
@@ -96,7 +99,7 @@ export default function App({ onNavigateHome }) {
     return oriented.notch && notch
       ? { ...oriented, notch: { ...oriented.notch, ...notch } }
       : oriented;
-  }, [photoPresetId, customPhotoSize, photoOrientation, notch]);
+  }, [photoPresetId, custom, photoOrientation, notch]);
 
   const activeSheetPreset = useMemo(() => {
     const base =
@@ -137,8 +140,14 @@ export default function App({ onNavigateHome }) {
           setPhotoOrientation(session.photoOrientation);
         if (session.sheetOrientation)
           setSheetOrientation(session.sheetOrientation);
-        if (session.customPhotoSize)
-          setCustomPhotoSize(session.customPhotoSize);
+      if (session.custom) setCustom(session.custom);
+      else if (session.customPhotoSize)
+        setCustom({
+          widthIn: session.customPhotoSize.wIn || 3,
+          heightIn: session.customPhotoSize.hIn || 4,
+          shape: "rect",
+          cornerRadiusIn: 0.5,
+        });
         if (session.showCutGuides !== undefined)
           setShowCutGuides(session.showCutGuides);
         if (session.cutGuideStyle) setCutGuideStyle(session.cutGuideStyle);
@@ -175,7 +184,7 @@ export default function App({ onNavigateHome }) {
         sheetPresetId,
         photoOrientation,
         sheetOrientation,
-        customPhotoSize,
+        custom,
         showCutGuides,
         cutGuideStyle,
         cutGuideColor,
@@ -196,7 +205,7 @@ export default function App({ onNavigateHome }) {
     sheetPresetId,
     photoOrientation,
     sheetOrientation,
-    customPhotoSize,
+    custom,
     showCutGuides,
     cutGuideStyle,
     cutGuideColor,
@@ -808,8 +817,8 @@ export default function App({ onNavigateHome }) {
                     }}
                     photoOrientation={photoOrientation}
                     onChangePhotoOrientation={(o) => setPhotoOrientation(o)}
-                    customPhotoSize={customPhotoSize}
-                    onChangeCustomSize={(size) => setCustomPhotoSize(size)}
+                    custom={custom}
+                    onChangeCustom={setCustom}
                     onChangeNotch={setNotch}
                     notchValue={notch}
                   />
