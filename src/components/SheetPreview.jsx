@@ -1021,47 +1021,33 @@ function RenderedCanvasHost({ canvas }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!containerRef.current || !canvas) return;
+    const container = containerRef.current;
+    if (!container || !canvas) return;
 
-    // Perf: full-res sheets (A4 @ 300dpi ≈ 8.7MP) are far too heavy to
-    // PNG-encode on every regeneration. Preview is downscaled to max 1600px
-    // and JPEG-encoded (sheets have a white background, no transparency
-    // needed) — several times faster with far less memory churn.
-    const MAX_PREVIEW_PX = 1600;
-    const scale = Math.min(
-      1,
-      MAX_PREVIEW_PX / Math.max(canvas.width, canvas.height),
-    );
+    // Retain full uncompressed resolution directly from the sheet canvas buffer.
+    // Display size is constrained via CSS while maintaining exact aspect ratio,
+    // allowing native hardware GPU acceleration and ultra-crisp zooming without
+    // any downsampling or JPEG compression loss.
+    canvas.style.maxHeight = "680px";
+    canvas.style.maxWidth = "100%";
+    canvas.style.height = "auto";
+    canvas.style.display = "block";
+    canvas.style.pointerEvents = "none";
+    canvas.style.userSelect = "none";
+    canvas.style.webkitUserSelect = "none";
+    canvas.style.borderRadius = "3px";
+    canvas.oncontextmenu = (e) => e.preventDefault();
+    canvas.ondragstart = (e) => e.preventDefault();
 
-    let previewCanvas = canvas;
-    if (scale < 1) {
-      previewCanvas = document.createElement("canvas");
-      previewCanvas.width = Math.round(canvas.width * scale);
-      previewCanvas.height = Math.round(canvas.height * scale);
-      const pctx = previewCanvas.getContext("2d");
-      // High-quality smoothing keeps thin 1px cut-guide lines from dropping
-      // out or flickering during the downscale (the "inconsistent guides" bug)
-      pctx.imageSmoothingEnabled = true;
-      pctx.imageSmoothingQuality = "high";
-      pctx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
-    }
+    container.innerHTML = "";
+    container.appendChild(canvas);
 
-    containerRef.current.innerHTML = "";
-    const previewImg = document.createElement("img");
-    previewImg.src = previewCanvas.toDataURL("image/jpeg", 0.9);
-    previewImg.style.maxHeight = "680px";
-    previewImg.style.maxWidth = "100%";
-    previewImg.style.height = "auto";
-    previewImg.style.display = "block";
-    previewImg.style.pointerEvents = "none";
-    previewImg.style.userSelect = "none";
-    previewImg.style.webkitUserSelect = "none";
-    previewImg.style.webkitUserDrag = "none";
-    previewImg.setAttribute("draggable", "false");
-    previewImg.oncontextmenu = (e) => e.preventDefault();
-    previewImg.ondragstart = (e) => e.preventDefault();
-    containerRef.current.appendChild(previewImg);
+    return () => {
+      if (container.contains(canvas)) {
+        container.removeChild(canvas);
+      }
+    };
   }, [canvas]);
 
-  return <div ref={containerRef} />;
+  return <div ref={containerRef} style={{ lineHeight: 0 }} />;
 }

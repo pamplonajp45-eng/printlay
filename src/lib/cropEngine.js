@@ -21,6 +21,55 @@ export function loadImage(url) {
 }
 
 /**
+ * Draws an image slice (sx, sy, sw, sh) into (dx, dy, dw, dh) on ctx with maximum fidelity.
+ * Applies stepped downsampling (halving) when downscale factor exceeds 2x to avoid
+ * aliasing, pixel skipping, and moiré artifacts from large resolution camera uploads.
+ */
+function drawScaledImageHighQuality(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  const targetW = Math.abs(dw);
+  const targetH = Math.abs(dh);
+  const scaleX = sw / targetW;
+  const scaleY = sh / targetH;
+  const maxScale = Math.max(scaleX, scaleY);
+
+  // If downscaling is moderate (<= 2x) or upscaling, native high-quality canvas drawImage is optimal
+  if (maxScale <= 2) {
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+    return;
+  }
+
+  // Stepped halving for extreme downscaling (e.g. 12-48MP smartphone photos down to small prints)
+  let curW = Math.round(sw);
+  let curH = Math.round(sh);
+  let curCanvas = document.createElement("canvas");
+  curCanvas.width = curW;
+  curCanvas.height = curH;
+  let curCtx = curCanvas.getContext("2d");
+  curCtx.imageSmoothingEnabled = true;
+  curCtx.imageSmoothingQuality = "high";
+  curCtx.drawImage(img, sx, sy, sw, sh, 0, 0, curW, curH);
+
+  while (curW / 2 >= targetW && curH / 2 >= targetH) {
+    const nextW = Math.round(curW / 2);
+    const nextH = Math.round(curH / 2);
+    const nextCanvas = document.createElement("canvas");
+    nextCanvas.width = nextW;
+    nextCanvas.height = nextH;
+    const nextCtx = nextCanvas.getContext("2d");
+    nextCtx.imageSmoothingEnabled = true;
+    nextCtx.imageSmoothingQuality = "high";
+    nextCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
+    curCanvas = nextCanvas;
+    curW = nextW;
+    curH = nextH;
+  }
+
+  ctx.drawImage(curCanvas, 0, 0, curW, curH, dx, dy, dw, dh);
+}
+/**
  * Crops an image to a canvas matching target preset dimensions and frame options.
  *
  * @param {HTMLImageElement} img - Loaded image element
@@ -46,6 +95,8 @@ export function cropToCanvas(img, preset, options = {}) {
   canvas.width = targetWpx;
   canvas.height = targetHpx;
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
   // Draw background (frame color)
   ctx.fillStyle = frameBgColor;
@@ -136,6 +187,8 @@ export function cropToCanvas(img, preset, options = {}) {
 
   const drawPhoto = (applyFilter = false, alpha = 1.0) => {
     ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.globalAlpha = alpha;
     if (applyFilter && filterDef) {
       ctx.filter = filterDef.cssFilter;
@@ -147,12 +200,12 @@ export function cropToCanvas(img, preset, options = {}) {
       ctx.translate(centerX, centerY);
       ctx.rotate((rotate * Math.PI) / 180);
       if (is90or270) {
-        ctx.drawImage(img, sx, sy, sw, sh, -photoH / 2, -photoW / 2, photoH, photoW);
+        drawScaledImageHighQuality(ctx, img, sx, sy, sw, sh, -photoH / 2, -photoW / 2, photoH, photoW);
       } else {
-        ctx.drawImage(img, sx, sy, sw, sh, -photoW / 2, -photoH / 2, photoW, photoH);
+        drawScaledImageHighQuality(ctx, img, sx, sy, sw, sh, -photoW / 2, -photoH / 2, photoW, photoH);
       }
     } else {
-      ctx.drawImage(img, sx, sy, sw, sh, photoX, photoY, photoW, photoH);
+      drawScaledImageHighQuality(ctx, img, sx, sy, sw, sh, photoX, photoY, photoW, photoH);
     }
     ctx.restore();
   };
@@ -339,3 +392,4 @@ function renderTextOverlays(ctx, overlays, canvasW, canvasH, dpi) {
     ctx.restore();
   });
 }
+

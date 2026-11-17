@@ -69,7 +69,7 @@ export default function CropModal({
       ? [editingText]
       : textOverlays;
     const rendered = cropToCanvas(loadedImgRef.current, photoPreset, {
-      dpi: 150,
+      dpi: 300,
       cropSettings,
       filter: activeFilter,
       filterIntensity,
@@ -79,7 +79,10 @@ export default function CropModal({
 
     canvas.width = rendered.width;
     canvas.height = rendered.height;
-    canvas.getContext("2d").drawImage(rendered, 0, 0);
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(rendered, 0, 0);
   }, [photoPreset, cropSettings, activeFilter, filterIntensity, editingText, textOverlays]);
 
   useEffect(() => {

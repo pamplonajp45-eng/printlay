@@ -51,7 +51,7 @@ export default function StickerMockup3D({ photos = [], photoPreset, frameBgColor
       .then((img) => {
         if (cancelled) return;
         const canvas = cropToCanvas(img, wrapPreset, {
-          dpi: 200,
+          dpi: 300,
           cropSettings: photo.cropSettings,
           filter: photo.filter || "none",
           filterIntensity: typeof photo.filterIntensity === "number" ? photo.filterIntensity : 1,

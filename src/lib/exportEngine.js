@@ -37,8 +37,9 @@ export async function exportToPdf(sheets, sheetPreset, fileName = "printlay-layo
       pdf.addPage([wIn, hIn], orientation);
     }
 
-    // High quality JPEG encoding is ~10x faster than PNG for multi-megapixel print canvases
-    const dataUrl = sheets[i].canvas.toDataURL("image/jpeg", 0.95);
+    // Ultra-high quality JPEG encoding (0.98) avoids chroma subsampling artifacts
+    // while maintaining fast processing and reasonable PDF file sizes.
+    const dataUrl = sheets[i].canvas.toDataURL("image/jpeg", 0.98);
     pdf.addImage(dataUrl, "JPEG", 0, 0, wIn, hIn, undefined, "FAST");
     
     await yieldToMain();
@@ -101,7 +102,7 @@ export async function triggerBrowserPrint(sheets, sheetPreset, onProgress) {
   for (let i = 0; i < sheets.length; i++) {
     if (onProgress) onProgress(i + 1, sheets.length);
     await yieldToMain();
-    dataUrls.push(sheets[i].canvas.toDataURL("image/jpeg", 0.95));
+    dataUrls.push(sheets[i].canvas.toDataURL("image/jpeg", 0.98));
   }
 
   const iframe = document.createElement("iframe");

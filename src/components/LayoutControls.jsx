@@ -220,6 +220,22 @@ export default function LayoutControls({
               >
                 300 DPI (Print)
               </button>
+              <button
+                onClick={() => onChangeDpi(600)}
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: "999px",
+                  border: "none",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  background: dpi === 600 ? "#8f7fe0" : "transparent",
+                  color: dpi === 600 ? "#fff" : "#57536b",
+                  cursor: "pointer",
+                }}
+                title="600 DPI - Ultra HD photo lab print quality"
+              >
+                600 DPI (Ultra)
+              </button>
             </div>
           </div>
 

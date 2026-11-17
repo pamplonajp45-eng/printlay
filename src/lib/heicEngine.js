@@ -24,7 +24,7 @@ export async function convertHeicToJpeg(file) {
     const convertedBlob = await heic2any({
       blob: file,
       toType: "image/jpeg",
-      quality: 0.92,
+      quality: 0.98,
     });
 
     const resultBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
@@ -67,7 +67,7 @@ export async function convertHeicFilesInParallel(files, options = {}) {
       const converted = await heic2any({
         blob: data,
         toType: "image/jpeg",
-        quality: 0.92,
+        quality: 0.98,
       });
       // heic2any resolves with a Blob (or an array of Blobs for multi-frame)
       return Array.isArray(converted) ? converted[0] : converted;

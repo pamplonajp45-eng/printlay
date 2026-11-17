@@ -5,12 +5,12 @@ import { PhotoGridSkeleton } from "./Skeleton";
 
 // Demo sample images for quick 1-click testing
 const SAMPLE_PHOTOS = [
-  { name: "sample-1.jpg", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80" },
-  { name: "sample-2.jpg", url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&auto=format&fit=crop&q=80" },
-  { name: "sample-3.jpg", url: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&auto=format&fit=crop&q=80" },
-  { name: "sample-4.jpg", url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&auto=format&fit=crop&q=80" },
-  { name: "sample-5.jpg", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=80" },
-  { name: "sample-6.jpg", url: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=800&auto=format&fit=crop&q=80" },
+  { name: "sample-1.jpg", url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=2000&auto=format&fit=crop&q=95" },
+  { name: "sample-2.jpg", url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=2000&auto=format&fit=crop&q=95" },
+  { name: "sample-3.jpg", url: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=2000&auto=format&fit=crop&q=95" },
+  { name: "sample-4.jpg", url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=2000&auto=format&fit=crop&q=95" },
+  { name: "sample-5.jpg", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=2000&auto=format&fit=crop&q=95" },
+  { name: "sample-6.jpg", url: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=2000&auto=format&fit=crop&q=95" },
 ];
 
 export default function UploadZone({ onPhotosAdded, photoCount }) {

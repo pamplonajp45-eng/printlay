@@ -186,6 +186,8 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     sheetCanvas.width = sheetWpx;
     sheetCanvas.height = sheetHpx;
     const ctx = sheetCanvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     // Sheet background
     ctx.fillStyle = bgColor;
@@ -210,6 +212,8 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
       // Draw photo canvas onto sheet (clipped to the custom shape if any)
       if (isShapedPreset(photoPreset)) {
         ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
         ctx.clip(shapePath2D(photoPreset, x, y, photoWpx, photoHpx, dpi));
         ctx.drawImage(croppedCanvas, x, y);
         ctx.restore();
