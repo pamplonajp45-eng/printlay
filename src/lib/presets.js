@@ -214,6 +214,46 @@ export const PHOTO_PRESETS = [
     hole: V5_V6_HOLE,
     hasDieCutContour: true,
   },
+    {
+    // ATM / debit card (ISO/IEC 7810 ID-1): 85.60 x 53.98 mm, corner radius 3.18 mm
+    id: "atm-card",
+    name: "ATM Card Sticker",
+    description: "85.6 × 54 mm card skin with rounded corners and chip window",
+    wIn: mmToIn(85.6),
+    hIn: mmToIn(53.98),
+    wCm: 8.56,
+    hCm: 5.4,
+    isPolaroid: false,
+    aspectRatio: 85.6 / 53.98,
+    shape: "rounded",
+    cornerRadiusIn: mmToIn(3.18),
+    // Chip window. Placeholder values: measure your Maribank card and edit these.
+    // Positions are from the card's top-left corner. Includes ~0.5 mm margin.
+   hole: {
+      xIn: 0.38,        // PLACEHOLDER: card's left edge to the hole's left edge
+      yIn: 0.72,        // PLACEHOLDER: card's top edge to the hole's top edge
+      widthIn: 0.431,
+      heightIn: 0.327,
+      radiusIn: 0.04,   // curvy corners: raise for rounder, lower for squarer
+    },
+  },
+  {
+    // ATM / debit card (ISO/IEC 7810 ID-1): 85.60 x 53.98 mm, corner radius 3.18 mm
+    id: "beep-card",
+    name: "ATM Card Sticker",
+    description: "85.6 × 54 mm card skin with rounded corners and chip window",
+    wIn: mmToIn(85.6),
+    hIn: mmToIn(53.98),
+    wCm: 8.56,
+    hCm: 5.4,
+    isPolaroid: false,
+    aspectRatio: 85.6 / 53.98,
+    shape: "rounded",
+    cornerRadiusIn: mmToIn(3.18),
+    // Chip window. Placeholder values: measure your Maribank card and edit these.
+    // Positions are from the card's top-left corner. Includes ~0.5 mm margin.
+  
+  },
   {
     ...V5_V6_BASE,
     id: "nametag-hole-v6",

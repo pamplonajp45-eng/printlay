@@ -443,8 +443,11 @@ function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, ho
     } else {
       ctx.setLineDash([]); // solid, and "corner" falls back to a solid outline
     }
-    ctx.stroke(shapePath2D(photoPreset, x, y, w, h, dpi));
+      ctx.stroke(shapePath2D(photoPreset, x, y, w, h, dpi));
     ctx.restore();
+    if (hole) {
+      drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
+    }
     return;
   }
 
