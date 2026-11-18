@@ -57,6 +57,8 @@ export default function App({ onNavigateHome }) {
   const [pageLabels, setPageLabels] = useState({});
 
   const [sheets, setSheets] = useState([]);
+  const croppedCanvasesRef = useRef([]);
+  const transparentSheetsRef = useRef([]);
   const generationTokenRef = useRef(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeCropPhoto, setActiveCropPhoto] = useState(null);
@@ -223,6 +225,8 @@ export default function App({ onNavigateHome }) {
   const handleGenerateLayout = useCallback(async () => {
     if (photos.length === 0) {
       setSheets([]);
+      croppedCanvasesRef.current = [];
+      transparentSheetsRef.current = [];
       return;
     }
 
@@ -272,6 +276,8 @@ export default function App({ onNavigateHome }) {
         }
       }
 
+      croppedCanvasesRef.current = croppedCanvases;
+
       // 2. Lay out cropped photo canvases onto sheet(s) using layoutEngine
       const generatedSheets = generateSheetCanvases(
         croppedCanvases,
@@ -289,11 +295,34 @@ export default function App({ onNavigateHome }) {
           showSequenceLabels,
           pageLabel,
           pageLabelOverrides: pageLabels,
+          bgColor: "#ffffff",
+        },
+      );
+
+      // Pre-generate transparent sheets for PNG export (removes background outside cut guides)
+      const transparentSheets = generateSheetCanvases(
+        croppedCanvases,
+        activePhotoPreset,
+        activeSheetPreset,
+        previewPhotos,
+        {
+          dpi,
+          marginIn,
+          gutterIn,
+          showCutGuides,
+          cutGuideStyle,
+          cutGuideColor,
+          cutGuideOpacity,
+          showSequenceLabels: false,
+          pageLabel: null,
+          pageLabelOverrides: {},
+          bgColor: null,
         },
       );
 
       if (token !== generationTokenRef.current) return;
       setSheets(generatedSheets);
+      transparentSheetsRef.current = transparentSheets;
     } catch (err) {
       console.error("Layout generation failed:", err);
     } finally {
@@ -405,6 +434,8 @@ export default function App({ onNavigateHome }) {
     if (window.confirm("Are you sure you want to clear all uploaded photos?")) {
       setPhotos([]);
       setSheets([]);
+      croppedCanvasesRef.current = [];
+      transparentSheetsRef.current = [];
       await clearSessionStorage();
     }
   };
@@ -525,15 +556,105 @@ export default function App({ onNavigateHome }) {
     );
   }, [sheets, activeSheetPreset, triggerFeedbackPrompt]);
 
+  const getTransparentSheets = useCallback(async () => {
+    if (
+      transparentSheetsRef.current &&
+      transparentSheetsRef.current.length > 0
+    ) {
+      return transparentSheetsRef.current;
+    }
+
+    const previewPhotos = photos.map((photo) => {
+      if (
+        !textPreview ||
+        (textPreview.targetMode !== "all" &&
+          textPreview.targetMode !== photo.id)
+      ) {
+        return photo;
+      }
+      return {
+        ...photo,
+        textOverlays: textPreview.overlay?.text?.trim()
+          ? [textPreview.overlay]
+          : photo.textOverlays || [],
+      };
+    });
+
+    let croppedCanvases = croppedCanvasesRef.current;
+    if (!croppedCanvases || croppedCanvases.length !== previewPhotos.length) {
+      croppedCanvases = [];
+      for (let i = 0; i < previewPhotos.length; i++) {
+        const photo = previewPhotos[i];
+        const loadedImg = await loadImage(photo.url || photo.dataUrl);
+        const canvas = cropToCanvas(loadedImg, activePhotoPreset, {
+          dpi,
+          cropSettings: photo.cropSettings,
+          filter: photo.filter || "none",
+          filterIntensity:
+            typeof photo.filterIntensity === "number"
+              ? photo.filterIntensity
+              : 1,
+          frameBgColor,
+          textOverlays: photo.textOverlays || [],
+        });
+        croppedCanvases.push(canvas);
+      }
+      croppedCanvasesRef.current = croppedCanvases;
+    }
+
+    const tSheets = generateSheetCanvases(
+      croppedCanvases,
+      activePhotoPreset,
+      activeSheetPreset,
+      previewPhotos,
+      {
+        dpi,
+        marginIn,
+        gutterIn,
+        showCutGuides,
+        cutGuideStyle,
+        cutGuideColor,
+        cutGuideOpacity,
+        showSequenceLabels: false,
+        pageLabel: null,
+        pageLabelOverrides: {},
+        bgColor: null,
+      },
+    );
+    transparentSheetsRef.current = tSheets;
+    return tSheets;
+  }, [
+    photos,
+    textPreview,
+    activePhotoPreset,
+    activeSheetPreset,
+    dpi,
+    frameBgColor,
+    marginIn,
+    gutterIn,
+    showCutGuides,
+    cutGuideStyle,
+    cutGuideColor,
+    cutGuideOpacity,
+  ]);
+
   const handleDownloadZip = useCallback(async () => {
     if (!sheets || sheets.length === 0) return;
     triggerFeedbackPrompt("png");
-    if (sheets.length === 1) {
-      exportSheetPng(sheets[0].canvas, 0, "printlay-sheet-1.png");
+    const transparentSheets = await getTransparentSheets();
+    const exportSheets =
+      transparentSheets && transparentSheets.length > 0
+        ? transparentSheets
+        : sheets;
+    if (exportSheets.length === 1) {
+      exportSheetPng(exportSheets[0].canvas, 0, "printlay-sheet-1.png");
     } else {
-      await exportAllPngsZip(sheets, `printlay-sheets-${Date.now()}.zip`);
+      await exportAllPngsZip(
+        exportSheets,
+        `printlay-sheets-${Date.now()}.zip`,
+      );
     }
-  }, [sheets, triggerFeedbackPrompt]);
+  }, [sheets, triggerFeedbackPrompt, getTransparentSheets]);
 
   const handlePrint = useCallback(async () => {
     if (!sheets || sheets.length === 0) return;

@@ -83,6 +83,43 @@ export function traceNotchPath(ctx, x, y, w, h, notch, pxPerIn, grow = 0) {
 }
 
 /**
+ * Traces only the notch cutout boundary (the arch into the card: walls + rounded ceiling),
+ * which sits right on the boundary of the white cutout part.
+ * Does not stroke or fill, and does not trace the outer box.
+ */
+export function traceNotchCavityPath(ctx, x, y, w, h, notch, pxPerIn) {
+  if (!notch) return;
+  const { lw, lh, map } = frame(w, h, notch.edge);
+  const o = outline(
+    lw,
+    lh,
+    notch.widthIn * pxPerIn,
+    notch.depthIn * pxPerIn,
+    notch.radiusIn * pxPerIn,
+    0
+  );
+  const P = (u, v) => {
+    const [px, py] = map(u, v);
+    return [x + px, y + py];
+  };
+
+  const [sX, sY] = P(o.uR, lh);
+  ctx.moveTo(sX, sY);
+  const [wR_x, wR_y] = P(o.uR, o.vT + o.r);
+  ctx.lineTo(wR_x, wR_y);
+  const [cR_x, cR_y] = P(o.uR, o.vT);
+  const [tR_x, tR_y] = P(o.uR - o.r, o.vT);
+  ctx.arcTo(cR_x, cR_y, tR_x, tR_y, o.r);
+  const [tL_x, tL_y] = P(o.uL + o.r, o.vT);
+  ctx.lineTo(tL_x, tL_y);
+  const [cL_x, cL_y] = P(o.uL, o.vT);
+  const [wL_x, wL_y] = P(o.uL, o.vT + o.r);
+  ctx.arcTo(cL_x, cL_y, wL_x, wL_y, o.r);
+  const [eX, eY] = P(o.uL, lh);
+  ctx.lineTo(eX, eY);
+}
+
+/**
  * Makes everything outside the notch shape transparent on a canvas that is
  * exactly one cell. Call it LAST in cropToCanvas (after text overlays).
  * Returns the same canvas.

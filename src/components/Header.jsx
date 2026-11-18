@@ -427,6 +427,11 @@ export default function Header({
                       disabled={busyAction === "zip"}
                       onClick={() => runAction("zip", onDownloadZip)}
                       className="bubble-button-secondary"
+                      title={
+                        sheets.length === 1
+                          ? "Download PNG with removed background outside print cut guides"
+                          : "Download ZIP of PNG sheets with removed background outside print cut guides"
+                      }
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -445,7 +450,9 @@ export default function Header({
                         <Archive size={15} />
                       )}
                       {busyAction === "zip"
-                        ? "Zipping PNGs..."
+                        ? sheets.length === 1
+                          ? "Preparing PNG..."
+                          : "Zipping PNGs..."
                         : sheets.length === 1
                           ? "Download PNG"
                           : "Download PNGs (ZIP)"}

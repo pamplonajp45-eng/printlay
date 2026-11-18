@@ -2,6 +2,7 @@
  * Sheet Bin-Packing Layout & Cut-Guide Engine
  */
 import { getV5V6OutlinePath, V5_V6_SHEET_LAYOUT, isShapedPreset, getShapePath } from "./presets";
+import { traceNotchCavityPath } from "./notchShape";
 
 /**
  * True when the V5/V6 "4 stickers on one A4 landscape sheet" (2x2) layout applies:
@@ -22,6 +23,80 @@ function shapePath2D(preset, x, y, wPx, hPx, dpi) {
   const p = new Path2D();
   p.addPath(new Path2D(d), new DOMMatrix([dpi, 0, 0, dpi, x, y]));
   return p;
+}
+
+/**
+ * Lets traceNotchCavityPath() draw into a Path2D (which has no beginPath).
+ */
+function pathAsCtx(path) {
+  return new Proxy(path, {
+    get(target, key) {
+      if (key === "beginPath") return () => {};
+      const v = target[key];
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+}
+
+/** Path2D of just the notch cavity (canvas px). */
+function notchCavityPath2D(x, y, w, h, notch, photoPreset, dpi) {
+  const p = new Path2D();
+  const pxPerIn = photoPreset?.wIn && w ? w / photoPreset.wIn : dpi;
+  traceNotchCavityPath(pathAsCtx(p), x, y, w, h, notch, pxPerIn);
+  return p;
+}
+
+/** Cell rectangle minus the notch. Use with clip(path, "evenodd"). */
+function notchedCellPath2D(x, y, w, h, notch, photoPreset, dpi) {
+  const p = new Path2D();
+  p.rect(x, y, w, h);
+  p.addPath(notchCavityPath2D(x, y, w, h, notch, photoPreset, dpi));
+  return p;
+}
+
+/**
+ * Rectangle cut guide whose line stops at the notch: the straight edge
+ * across the notch mouth is erased, then the notch outline is stroked.
+ */
+function drawNotchedRectGuide(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, photoPreset) {
+  const notch = photoPreset.notch;
+  const pad = Math.ceil(dpi * 0.1);
+  const lw = Math.max(1, Math.round(dpi * 0.005));
+
+  const off = document.createElement("canvas");
+  off.width = w + pad * 2;
+  off.height = h + pad * 2;
+  const octx = off.getContext("2d");
+
+  octx.strokeStyle = guideColor || "#b0b0be";
+  octx.lineWidth = lw;
+  if (style === "dashed") {
+    const dashLen = Math.round(dpi * 0.02);
+    const gapLen = Math.round(dpi * 0.015);
+    const period = dashLen + gapLen;
+    octx.setLineDash([dashLen, gapLen]);
+    octx.lineDashOffset = -(((x - 0.5) % period) + period) % period;
+  }
+  octx.strokeRect(pad - 0.5, pad - 0.5, w + 1, h + 1);
+
+  // Erase the part of the rectangle line that crosses the notch mouth.
+  // The cavity is filled twice (second copy shifted down) so the whole
+  // line thickness under the mouth is covered.
+  const cavity = notchCavityPath2D(pad, pad, w, h, notch, photoPreset, dpi);
+  const cover = new Path2D();
+  cover.addPath(cavity);
+  cover.addPath(cavity, new DOMMatrix([1, 0, 0, 1, 0, lw + 2]));
+  octx.globalCompositeOperation = "destination-out";
+  octx.fill(cover);
+
+  ctx.save();
+  ctx.globalAlpha =
+    typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
+  ctx.drawImage(off, x - pad, y - pad);
+  ctx.restore();
+
+  // Notch outline itself
+  drawNotchCutGuide(ctx, x, y, w, h, notch, style, dpi, guideColor, guideOpacity, photoPreset);
 }
 
 /**
@@ -102,6 +177,8 @@ function presetHeightIn(preset) {
  * @param {Object} sheetPreset
  * @param {Array} photoMetadata - [{ id, name, cropSettings }]
  * @param {Object} options - { dpi, marginIn, gutterIn, showCutGuides, cutGuideStyle, showSequenceLabels, bgColor }
+ *   Pass bgColor: null for a transparent sheet (PNG export). Photos are then
+ *   clipped to the notched shape and labels are not drawn.
  * @returns {Array<{ canvas: HTMLCanvasElement, sheetIndex: number, totalSheets: number, layoutCells: Array }>}
  */
 export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset, photoMetadata = [], options = {}) {
@@ -189,9 +266,11 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    // Sheet background
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, sheetWpx, sheetHpx);
+    // Sheet background (skipped for transparent export: bgColor = null)
+    if (bgColor) {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, sheetWpx, sheetHpx);
+    }
 
     const sheetSlice = croppedCanvases.slice(s * perSheet, (s + 1) * perSheet);
     const metaSlice = photoMetadata.slice(s * perSheet, (s + 1) * perSheet);
@@ -215,6 +294,30 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.clip(shapePath2D(photoPreset, x, y, photoWpx, photoHpx, dpi));
+        ctx.drawImage(croppedCanvas, x, y);
+        ctx.restore();
+      } else if (photoPreset?.notch) {
+        // Notch presets (BLCK V2-V4): cell rectangle minus the notch, so the
+        // notch area stays unpainted (transparent in a PNG export)
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.clip(
+          notchedCellPath2D(x, y, photoWpx, photoHpx, photoPreset.notch, photoPreset, dpi),
+          "evenodd",
+        );
+        ctx.drawImage(croppedCanvas, x, y);
+        ctx.restore();
+      } else if (photoPreset?.hasDieCutContour && photoWpx >= photoHpx) {
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        const p = new Path2D();
+        p.addPath(
+          new Path2D(getV5V6OutlinePath(photoPreset.wIn, photoPreset.hIn)),
+          new DOMMatrix([dpi, 0, 0, dpi, x, y]),
+        );
+        ctx.clip(p);
         ctx.drawImage(croppedCanvas, x, y);
         ctx.restore();
       } else {
@@ -242,7 +345,8 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     // Sequence / file labels are also drawn in a second pass — with zero
     // gutter a label drawn inline sits on the next row's photo and gets
     // painted over (the "first column has no label" bug).
-    if (showSequenceLabels) {
+    // Skipped for transparent export (labels would float outside the cuts).
+    if (showSequenceLabels && bgColor) {
       layoutCells.forEach((cell) => {
         const itemNumber = cell.index + 1;
         // Use the cell's own photo (row * cols + col is wrong for the 2x2 layout)
@@ -269,11 +373,14 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
       if (
         !isPyramid3 &&
         !isShapedPreset(photoPreset) &&
+        !photoPreset.notch &&
         gutterPx === 0 &&
         cutGuideStyle !== "corner"
       ) {
         // Zero gutter: cells share edges, so draw the grid as continuous
         // separator lines instead of overlapping per-cell rectangles.
+        // (Notch presets skip this: straight lines would cross the notches,
+        // so they use the per-cell guides below.)
         drawGridSeparators(
           ctx,
           offsetX,
@@ -323,13 +430,14 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
 
     // Draw optional page label (e.g. tracking / waybill note) in the margin area.
     // A per-page override (if any) replaces the default text for this sheet only.
+    // Skipped for transparent export.
     let pageLabelBounds = null;
     let pageLabelText = "";
     const pageOverride = pageLabelOverrides ? pageLabelOverrides[s] : null;
     const resolvedLabel = pageOverride
       ? { ...pageLabel, ...pageOverride }
       : { ...pageLabel };
-    if (resolvedLabel && resolvedLabel.enabled && resolvedLabel.text?.trim()) {
+    if (bgColor && resolvedLabel && resolvedLabel.enabled && resolvedLabel.text?.trim()) {
       pageLabelBounds = drawPageLabel(ctx, resolvedLabel, sheetWpx, sheetHpx, marginPx, dpi);
       pageLabelText = resolvedLabel.text;
     }
@@ -447,10 +555,13 @@ function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, ho
     } else {
       ctx.setLineDash([]); // solid, and "corner" falls back to a solid outline
     }
-      ctx.stroke(shapePath2D(photoPreset, x, y, w, h, dpi));
+    ctx.stroke(shapePath2D(photoPreset, x, y, w, h, dpi));
     ctx.restore();
     if (hole) {
       drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
+    }
+    if (photoPreset?.notch) {
+      drawNotchCutGuide(ctx, x, y, w, h, photoPreset.notch, style, dpi, guideColor, guideOpacity, photoPreset);
     }
     return;
   }
@@ -481,6 +592,18 @@ function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, ho
     ctx.stroke(outlinePath);
     ctx.restore();
 
+    if (hole) {
+      drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
+    }
+    if (photoPreset?.notch) {
+      drawNotchCutGuide(ctx, x, y, w, h, photoPreset.notch, style, dpi, guideColor, guideOpacity, photoPreset);
+    }
+    return;
+  }
+
+  // Notch presets (BLCK V2-V4): rectangle guide that follows the notch
+  if (photoPreset?.notch && style !== "corner") {
+    drawNotchedRectGuide(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, photoPreset);
     if (hole) {
       drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
     }
@@ -550,6 +673,47 @@ function drawCutGuides(ctx, x, y, w, h, style, dpi, guideColor, guideOpacity, ho
   if (hole) {
     drawHoleCutGuide(ctx, x, y, hole, style, dpi, guideColor, guideOpacity);
   }
+  if (photoPreset?.notch) {
+    drawNotchCutGuide(ctx, x, y, w, h, photoPreset.notch, style, dpi, guideColor, guideOpacity, photoPreset);
+  }
+}
+
+/**
+ * Draws cut-guide line along the notch cutout boundary (the arch in the white part).
+ */
+function drawNotchCutGuide(
+  ctx,
+  x,
+  y,
+  w,
+  h,
+  notch,
+  style,
+  dpi,
+  guideColor,
+  guideOpacity,
+  photoPreset = null,
+) {
+  if (!notch) return;
+  ctx.save();
+  ctx.globalAlpha = typeof guideOpacity === "number" ? Math.max(0, Math.min(1, guideOpacity)) : 1;
+  ctx.strokeStyle = guideColor || "#b0b0be";
+  ctx.lineWidth = Math.max(1, Math.round(dpi * 0.005));
+
+  const dashLen = Math.round(dpi * 0.02);
+  const gapLen = Math.round(dpi * 0.015);
+  if (style === "dashed") {
+    ctx.setLineDash([dashLen, gapLen]);
+  } else {
+    ctx.setLineDash([]);
+  }
+
+  const pxPerIn = photoPreset?.wIn && w ? w / photoPreset.wIn : dpi;
+
+  ctx.beginPath();
+  traceNotchCavityPath(ctx, x, y, w, h, notch, pxPerIn);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**
