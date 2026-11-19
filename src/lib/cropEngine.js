@@ -75,7 +75,10 @@ function drawScaledImageHighQuality(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh) {
  * @param {HTMLImageElement} img - Loaded image element
  * @param {Object} preset - Photo preset object (from presets.js). If it has a
  *   `notch`, that notch is cut out of the result (transparent pixels).
- * @param {Object} options - { dpi, cropSettings, filter, frameBgColor }
+ * @param {Object} options - { dpi, cropSettings, filter, frameBgColor, shapeMask }
+ *   shapeMask (default true): cut the notch / hole out. Pass false for bleed
+ *   artwork, where the bleed path does the shaping and the ink must run
+ *   through the notch and window.
  * @returns {HTMLCanvasElement}
  */
 export function cropToCanvas(img, preset, options = {}) {
@@ -86,6 +89,7 @@ export function cropToCanvas(img, preset, options = {}) {
     filterIntensity = 1,
     frameBgColor = "#ffffff",
     textOverlays = [],
+    shapeMask = true,
   } = options;
 
   const targetWpx = Math.round(preset.wIn * dpi);
@@ -177,6 +181,10 @@ export function cropToCanvas(img, preset, options = {}) {
   sx = Math.max(0, Math.min(img.width - sw, sx));
   sy = Math.max(0, Math.min(img.height - sh, sy));
 
+  // Source pixels per output pixel (< 1 means the photo is upscaled). Read by
+  // the bleed-cut preview to report the photo's real effective DPI.
+  canvas.sourceScale = Math.sqrt((sw * sh) / Math.max(1, photoW * photoH));
+
   // Render to canvas with exact rotation alignment & zero borders
   const centerX = photoX + photoW / 2;
   const centerY = photoY + photoH / 2;
@@ -261,18 +269,29 @@ export function cropToCanvas(img, preset, options = {}) {
     renderTextOverlays(ctx, textOverlays, targetWpx, targetHpx, dpi);
   }
 
-  // Cut the notch out LAST so the photo, borders and text are all trimmed to
-  // the sticker shape. The notch becomes transparent pixels.
-  if (preset.notch) {
-    applyNotchMask(canvas, preset.notch, targetWpx / preset.wIn);
-  }
-
-  // Cut the enclosed hole out (for V5 / V6) so the window is see-through.
-  if (preset.hole) {
-    applyHoleMask(canvas, preset, targetWpx / preset.wIn);
-  }
-
+  if (shapeMask) applyShapeMasks(canvas, preset);
   return canvas;
+}
+
+/**
+ * Cuts the notch and enclosed hole out of a decal canvas (transparent pixels).
+ * Done LAST so the photo, borders and text are all trimmed to the sticker shape.
+ */
+export function applyShapeMasks(canvas, preset) {
+  const pxPerIn = canvas.width / preset.wIn;
+  if (preset.notch) applyNotchMask(canvas, preset.notch, pxPerIn);
+  // Enclosed hole (V5 / V6) so the window is see-through
+  if (preset.hole) applyHoleMask(canvas, preset, pxPerIn);
+  return canvas;
+}
+
+/** Copy of a canvas (same size and pixels). */
+export function cloneCanvas(src) {
+  const c = document.createElement("canvas");
+  c.width = src.width;
+  c.height = src.height;
+  c.getContext("2d").drawImage(src, 0, 0);
+  return c;
 }
 
 /**

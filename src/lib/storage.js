@@ -36,6 +36,7 @@ export async function saveSession(state) {
           filter: p.filter || "none",
           filterIntensity: typeof p.filterIntensity === "number" ? p.filterIntensity : 1,
           textOverlays: p.textOverlays || [],
+          sizeId: p.sizeId || undefined,
         };
       })
     );
@@ -88,6 +89,7 @@ export async function loadSession() {
       filter: p.filter || "none",
       filterIntensity: typeof p.filterIntensity === "number" ? p.filterIntensity : 1,
       textOverlays: p.textOverlays || [],
+      sizeId: p.sizeId || undefined,
     }));
 
     return {

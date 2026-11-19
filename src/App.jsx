@@ -11,10 +11,11 @@ import GuideModal from "./components/GuideModal";
 import TextControls from "./components/TextControls";
 import FeedbackPrompt from "./components/FeedbackPrompt";
 import StickerMockup3D from "./components/StickerMockup3D";
-import { Upload, Image, FileText, Sliders, X, Type, Box } from "lucide-react";
+import { Upload, Image, FileText, Sliders, X, Type, Box, Scissors } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
-import { cropToCanvas, loadImage } from "./lib/cropEngine";
+import { resolvePhotoPreset, hasMixedSizes } from "./lib/photoSizes";
+import { cropToCanvas, loadImage, applyShapeMasks, cloneCanvas } from "./lib/cropEngine";
 import { generateSheetCanvases, calculateGridInfo } from "./lib/layoutEngine";
 import {
   exportToPdf,
@@ -23,6 +24,14 @@ import {
   triggerBrowserPrint,
 } from "./lib/exportEngine";
 import { saveSession, loadSession, clearSessionStorage } from "./lib/storage";
+
+import { useBleedSettings, resolveBleedMm } from "./hooks/useBleedSettings";
+import { getBleedShape } from "./lib/bleedGeometry";
+import { computeLayout, A4 } from "./lib/layout";
+import { renderSheet } from "./lib/renderSheet";
+import { buildCalibrationSlots, makeTestImage } from "./lib/calibration";
+import BleedControls from "./components/BleedControls";
+import BleedCutPreview from "./components/BleedCutPreview";
 
 export default function App({ onNavigateHome }) {
   const [theme, setTheme] = useState(
@@ -64,7 +73,19 @@ export default function App({ onNavigateHome }) {
   const [activeCropPhoto, setActiveCropPhoto] = useState(null);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [activeTab, setActiveTab] = useState("photoPreset"); // "photos" | "photoPreset" | "sheetPreset" | "layout" | null
+  const [isBleedCutPreview, setIsBleedCutPreview] = useState(false);
+  const toggleTab = (tab) => {
+    setIsBleedCutPreview(false);
+    setActiveTab((cur) => (cur === tab ? null : tab));
+  };
   const [textPreview, setTextPreview] = useState(null);
+  // Bleed artwork: cropped photos WITHOUT the notch/hole cut out (the bleed path
+  // shapes them, so ink runs past the cut line there too). State, not a ref, so
+  // the bleed-cut preview re-renders when fresh canvases land.
+  const [bleedArtwork, setBleedArtwork] = useState([]);
+
+  // Bleed settings (printlay-bleed): persisted in localStorage, optional per-preset override
+  const { settings: bleedSettings, update: updateBleedSettings, setPresetBleed } = useBleedSettings();
 
   useEffect(() => {
     localStorage.setItem("printlay-theme", theme);
@@ -109,13 +130,24 @@ export default function App({ onNavigateHome }) {
     return getOrientedPreset(base, sheetOrientation);
   }, [sheetPresetId, sheetOrientation]);
 
+
+  // Per-photo sizes: each photo prints at its own preset (falls back to the batch preset)
+  const presetForPhoto = useCallback(
+    (photo) => resolvePhotoPreset(photo, activePhotoPreset, photoOrientation),
+    [activePhotoPreset, photoOrientation],
+  );
+  const photoPresets = useMemo(() => photos.map(presetForPhoto), [photos, presetForPhoto]);
+  const isMixedSizes = hasMixedSizes(photoPresets);
+  // Every photo on one size that differs from the batch: lay out at that size
+  const layoutPreset = !isMixedSizes && photoPresets.length ? photoPresets[0] : activePhotoPreset;
+
   const gridInfo = useMemo(() => {
-    return calculateGridInfo(activePhotoPreset, activeSheetPreset, {
+    return calculateGridInfo(layoutPreset, activeSheetPreset, {
       dpi,
       marginIn,
       gutterIn,
     });
-  }, [activePhotoPreset, activeSheetPreset, dpi, marginIn, gutterIn]);
+  }, [layoutPreset, activeSheetPreset, dpi, marginIn, gutterIn]);
 
   // Photos that fit on one page (used for layout slicing, page deletion, filters, etc.).
   // For continuous sheets perSheet is "Unlimited", so compute it from rows.
@@ -127,7 +159,29 @@ export default function App({ onNavigateHome }) {
     return cols * Math.max(1, Math.ceil(photos.length / cols));
   }, [gridInfo, photos.length]);
 
-  const totalPages = Math.max(1, Math.ceil(photos.length / photosPerPage));
+  const totalPages = isMixedSizes
+    ? Math.max(1, sheets.length)
+    : Math.max(1, Math.ceil(photos.length / photosPerPage));
+
+  // --- Bleed pipeline (printlay-bleed) ---
+  // One preset per sheet, packed on the bleed footprint; rotation tried both ways.
+  const bleedMm = resolveBleedMm(bleedSettings, activePhotoPreset);
+  const bleedShape = useMemo(
+    () => getBleedShape(activePhotoPreset, bleedMm, bleedSettings.cutInsetMm),
+    [activePhotoPreset, bleedMm, bleedSettings.cutInsetMm],
+  );
+
+  const bleedLayout = useMemo(
+    () =>
+      computeLayout({
+        footprint: bleedShape.footprint,
+        gapMm: bleedSettings.gapMm,
+        marginMm: bleedSettings.marginMm,
+        allowRotate: bleedSettings.allowRotate,
+        count: photos.length,
+      }),
+    [bleedShape, bleedSettings.gapMm, bleedSettings.marginMm, bleedSettings.allowRotate, photos.length],
+  );
 
   // Load session from IndexedDB on initial mount
   useEffect(() => {
@@ -226,6 +280,7 @@ export default function App({ onNavigateHome }) {
     if (photos.length === 0) {
       setSheets([]);
       croppedCanvasesRef.current = [];
+      setBleedArtwork([]);
       transparentSheetsRef.current = [];
       return;
     }
@@ -253,10 +308,13 @@ export default function App({ onNavigateHome }) {
         };
       });
       const croppedCanvases = [];
+      const artwork = [];
+      const presets = previewPhotos.map(presetForPhoto);
       for (let i = 0; i < previewPhotos.length; i++) {
         const photo = previewPhotos[i];
+        const preset = presets[i];
         const loadedImg = await loadImage(photo.url || photo.dataUrl);
-        const canvas = cropToCanvas(loadedImg, activePhotoPreset, {
+        const art = cropToCanvas(loadedImg, preset, {
           dpi,
           cropSettings: photo.cropSettings,
           filter: photo.filter || "none",
@@ -266,8 +324,14 @@ export default function App({ onNavigateHome }) {
               : 1,
           frameBgColor,
           textOverlays: photo.textOverlays || [],
+          shapeMask: false,
         });
-        croppedCanvases.push(canvas);
+        // Normal sheets: notch / window cut out (white). Bleed sheets get the
+        // full artwork and the bleed path shapes it (ink runs a bleed's width
+        // past the cut line into the notch / window, the rest stays white).
+        const hasShapeMask = Boolean(preset.notch || preset.hole);
+        croppedCanvases.push(hasShapeMask ? applyShapeMasks(cloneCanvas(art), preset) : art);
+        artwork.push(art);
 
         // Yield main thread every 4 photos
         if (i % 4 === 0) {
@@ -277,6 +341,7 @@ export default function App({ onNavigateHome }) {
       }
 
       croppedCanvasesRef.current = croppedCanvases;
+      setBleedArtwork(artwork);
 
       // 2. Lay out cropped photo canvases onto sheet(s) using layoutEngine
       const generatedSheets = generateSheetCanvases(
@@ -296,6 +361,7 @@ export default function App({ onNavigateHome }) {
           pageLabel,
           pageLabelOverrides: pageLabels,
           bgColor: "#ffffff",
+          photoPresets: presets,
         },
       );
 
@@ -317,6 +383,7 @@ export default function App({ onNavigateHome }) {
           pageLabel: null,
           pageLabelOverrides: {},
           bgColor: null,
+          photoPresets: presets,
         },
       );
 
@@ -334,6 +401,7 @@ export default function App({ onNavigateHome }) {
     photos,
     activePhotoPreset,
     activeSheetPreset,
+    presetForPhoto,
     dpi,
     marginIn,
     gutterIn,
@@ -435,6 +503,7 @@ export default function App({ onNavigateHome }) {
       setPhotos([]);
       setSheets([]);
       croppedCanvasesRef.current = [];
+      setBleedArtwork([]);
       transparentSheetsRef.current = [];
       await clearSessionStorage();
     }
@@ -580,13 +649,14 @@ export default function App({ onNavigateHome }) {
       };
     });
 
+    const presets = previewPhotos.map(presetForPhoto);
     let croppedCanvases = croppedCanvasesRef.current;
     if (!croppedCanvases || croppedCanvases.length !== previewPhotos.length) {
       croppedCanvases = [];
       for (let i = 0; i < previewPhotos.length; i++) {
         const photo = previewPhotos[i];
         const loadedImg = await loadImage(photo.url || photo.dataUrl);
-        const canvas = cropToCanvas(loadedImg, activePhotoPreset, {
+        const canvas = cropToCanvas(loadedImg, presets[i], {
           dpi,
           cropSettings: photo.cropSettings,
           filter: photo.filter || "none",
@@ -619,6 +689,7 @@ export default function App({ onNavigateHome }) {
         pageLabel: null,
         pageLabelOverrides: {},
         bgColor: null,
+        photoPresets: presets,
       },
     );
     transparentSheetsRef.current = tSheets;
@@ -626,6 +697,7 @@ export default function App({ onNavigateHome }) {
   }, [
     photos,
     textPreview,
+    presetForPhoto,
     activePhotoPreset,
     activeSheetPreset,
     dpi,
@@ -662,11 +734,53 @@ export default function App({ onNavigateHome }) {
     await triggerBrowserPrint(sheets, activeSheetPreset);
   }, [sheets, activeSheetPreset, triggerFeedbackPrompt]);
 
+  // Bleed slider: a per-preset override wins over the global value, so edit whichever applies
+  const handleSetBleed = useCallback(
+    (mm) => {
+      const id = activePhotoPreset?.id;
+      if (id && bleedSettings.perPreset?.[id]) setPresetBleed(id, mm);
+      else updateBleedSettings({ bleedMm: mm });
+    },
+    [activePhotoPreset, bleedSettings.perPreset, setPresetBleed, updateBleedSettings],
+  );
+
+  const handleBleedCalibrate = useCallback(() => {
+    const image = makeTestImage(1200);
+    const { slots } = buildCalibrationSlots({
+      preset: activePhotoPreset,
+      image,
+      cutInsetMm: bleedSettings.cutInsetMm,
+    });
+    const canvas = document.createElement("canvas");
+    renderSheet(canvas, {
+      dpi: 300,
+      sheet: A4,
+      slots,
+      background: "#ffffff",
+      showCutGuide: false,
+    });
+    const dataUrl = canvas.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(
+        `<!doctype html><html><head><meta charset="utf-8"><title>Bleed calibration sheet</title><style>body{margin:0}img{display:block;width:210mm;height:297mm}</style></head><body><img src="${dataUrl}"></body></html>`,
+      );
+      win.document.close();
+    }
+  }, [activePhotoPreset, bleedSettings.cutInsetMm]);
+
   const handleUpdatePhotoCrop = useCallback((photoId, newCropSettings) => {
     setPhotos((prev) =>
       prev.map((p) =>
         p.id === photoId ? { ...p, cropSettings: newCropSettings } : p,
       ),
+    );
+  }, []);
+
+  // Per-photo size: null / "" = follow the batch Photo Size
+  const handleSetPhotoSize = useCallback((photoId, sizeId) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === photoId ? { ...p, sizeId: sizeId || undefined } : p)),
     );
   }, []);
 
@@ -706,9 +820,11 @@ export default function App({ onNavigateHome }) {
     (pageNum, newFilter, newIntensity) => {
       const start = (pageNum - 1) * photosPerPage;
       const end = start + photosPerPage;
+      const pageIds = sheets[pageNum - 1]?.layoutCells?.map((c) => c.photoId).filter(Boolean);
+      const onPage = (p, i) => (pageIds?.length ? pageIds.includes(p.id) : i >= start && i < end);
       setPhotos((prev) =>
         prev.map((p, i) =>
-          i >= start && i < end
+          onPage(p, i)
             ? {
                 ...p,
                 filter: newFilter !== undefined ? newFilter : p.filter,
@@ -721,7 +837,7 @@ export default function App({ onNavigateHome }) {
         ),
       );
     },
-    [photosPerPage],
+    [photosPerPage, sheets],
   );
 
   // Crop Modal Handlers
@@ -799,7 +915,7 @@ export default function App({ onNavigateHome }) {
               type="button"
               className={`tool-rail-button ${activeTab === "photos" ? "active" : ""}`}
               onClick={() =>
-                setActiveTab(activeTab === "photos" ? null : "photos")
+                toggleTab("photos")
               }
               title="Upload & View Photos"
             >
@@ -812,7 +928,7 @@ export default function App({ onNavigateHome }) {
               type="button"
               className={`tool-rail-button ${activeTab === "photoPreset" ? "active" : ""}`}
               onClick={() =>
-                setActiveTab(activeTab === "photoPreset" ? null : "photoPreset")
+                toggleTab("photoPreset")
               }
               title="Select Target Photo Size"
             >
@@ -825,7 +941,7 @@ export default function App({ onNavigateHome }) {
               type="button"
               className={`tool-rail-button ${activeTab === "sheetPreset" ? "active" : ""}`}
               onClick={() =>
-                setActiveTab(activeTab === "sheetPreset" ? null : "sheetPreset")
+                toggleTab("sheetPreset")
               }
               title="Select Output Paper / Sheet Size"
             >
@@ -838,7 +954,7 @@ export default function App({ onNavigateHome }) {
               type="button"
               className={`tool-rail-button ${activeTab === "layout" ? "active" : ""}`}
               onClick={() =>
-                setActiveTab(activeTab === "layout" ? null : "layout")
+                toggleTab("layout")
               }
               title="Layout & Cut Guide Settings"
             >
@@ -850,7 +966,7 @@ export default function App({ onNavigateHome }) {
             <button
               type="button"
               className={`tool-rail-button ${activeTab === "text" ? "active" : ""}`}
-              onClick={() => setActiveTab(activeTab === "text" ? null : "text")}
+              onClick={() => toggleTab("text")}
               title="Add Text Overlays to Photos"
             >
               <Type size={19} />
@@ -868,13 +984,25 @@ export default function App({ onNavigateHome }) {
               type="button"
               className={`tool-rail-button ${activeTab === "mockup" ? "active" : ""}`}
               onClick={() =>
-                setActiveTab(activeTab === "mockup" ? null : "mockup")
+                toggleTab("mockup")
               }
               title="3D Wrap Preview"
             >
               <Box size={19} />
               <span className="tool-rail-label">3D Preview</span>
               <span className="tool-rail-badge">Wrap</span>
+            </button>
+            <button
+              type="button"
+              className={`tool-rail-button ${isBleedCutPreview ? "active" : ""}`}
+              onClick={() => {
+                setIsBleedCutPreview((open) => !open);
+                setActiveTab(null);
+              }}
+              title="Bleed-cut preview: full-page check of bleed, cut and safe lines"
+            >
+              <Scissors size={19} />
+              <span className="tool-rail-label">Bleed-cut</span>
             </button>
           </nav>
 
@@ -922,6 +1050,9 @@ export default function App({ onNavigateHome }) {
                       onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
                       onUpdatePhotoFilter={handleUpdatePhotoFilter}
                       onApplyFilterToAll={handleApplyFilterToAll}
+                      defaultSizeName={activePhotoPreset?.name}
+                      onChangePhotoSize={handleSetPhotoSize}
+                      isMixedSizes={isMixedSizes}
                     />
                   </>
                 )}
@@ -979,6 +1110,17 @@ export default function App({ onNavigateHome }) {
                   />
                 )}
 
+                {activeTab === "layout" && (
+                  <section className="pl-bleed-controls" style={{ marginTop: 12 }}>
+                    <BleedControls
+                      settings={bleedSettings}
+                      update={updateBleedSettings}
+                      onCalibrate={handleBleedCalibrate}
+                      capacity={bleedLayout.capacity}
+                    />
+                  </section>
+                )}
+
                 {activeTab === "text" && (
                   <TextControls
                     photos={photos}
@@ -993,6 +1135,7 @@ export default function App({ onNavigateHome }) {
                   <StickerMockup3D
                     photos={photos}
                     photoPreset={activePhotoPreset}
+                    getPhotoPreset={presetForPhoto}
                     frameBgColor={frameBgColor}
                   />
                 )}
@@ -1002,20 +1145,36 @@ export default function App({ onNavigateHome }) {
 
           {/* Main Canvas Viewport (Zero-scroll, full screen visibility) */}
           <main className="editor-canvas-viewport">
-            <SheetPreview
-              sheets={sheets}
-              photoPreset={activePhotoPreset}
-              sheetPreset={activeSheetPreset}
-              gridInfo={gridInfo}
-              photoCount={photos.length}
-              isGenerating={isGenerating}
-              onUpdatePhotoCrop={handleUpdatePhotoCrop}
-              onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
-              onDeletePhoto={handleRemovePhoto}
-              onDeletePage={handleDeletePage}
-              onUpdatePageLabel={handleUpdatePageLabel}
-              onUpdatePageLabelPosition={handleUpdatePageLabelPosition}
-            />
+            {isBleedCutPreview ? (
+              <BleedCutPreview
+                photos={photos}
+                preset={activePhotoPreset}
+                photoPresets={photoPresets}
+                croppedCanvases={bleedArtwork}
+                dpi={dpi}
+                settings={bleedSettings}
+                onUpdateSettings={updateBleedSettings}
+                onSetBleed={handleSetBleed}
+                onCalibrate={handleBleedCalibrate}
+                onExported={triggerFeedbackPrompt}
+                onClose={() => setIsBleedCutPreview(false)}
+              />
+            ) : (
+              <SheetPreview
+                sheets={sheets}
+                photoPreset={activePhotoPreset}
+                sheetPreset={activeSheetPreset}
+                gridInfo={gridInfo}
+                photoCount={photos.length}
+                isGenerating={isGenerating}
+                onUpdatePhotoCrop={handleUpdatePhotoCrop}
+                onOpenCropModal={(photo) => setActiveCropPhoto(photo)}
+                onDeletePhoto={handleRemovePhoto}
+                onDeletePage={handleDeletePage}
+                onUpdatePageLabel={handleUpdatePageLabel}
+                onUpdatePageLabelPosition={handleUpdatePageLabelPosition}
+              />
+            )}
           </main>
         </div>
       </div>
@@ -1024,7 +1183,7 @@ export default function App({ onNavigateHome }) {
       {activeCropPhoto && (
         <CropModal
           photo={activeCropPhoto}
-          photoPreset={activePhotoPreset}
+          photoPreset={presetForPhoto(activeCropPhoto)}
           onSave={handleSaveCrop}
           onApplyToAll={handleApplyToAllCrops}
           onApplyTextToAll={handleApplyTextToAll}

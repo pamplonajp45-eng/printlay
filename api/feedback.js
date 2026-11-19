@@ -173,6 +173,8 @@ export default async function handler(req, res) {
 
       const item = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: safeName,
+        type: safeType,
         rating: numRating,
         comment: safeComment,
         action: safeAction,

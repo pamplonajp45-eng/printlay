@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { PHOTO_PRESETS, cmToIn, mmToIn } from "../lib/presets";
-import { Sliders, RectangleVertical, RectangleHorizontal, Scissors } from "lucide-react";
+import { RectangleVertical, RectangleHorizontal, Scissors } from "lucide-react";
 import CustomSizePanel from "./CustomSizePanel";
 
 // ---- unit helpers (inches is the source of truth everywhere) ----
@@ -141,66 +141,51 @@ export default function PresetPicker({
     if (notchIn) emitNotch(notchIn, edge);
   };
 
-  const prevPresetRef = useRef(selectedPresetId);
-  const prevOrientationRef = useRef(photoOrientation);
+  const edgeFor = (preset, orientation) => {
+    const nativeL = (preset?.wIn ?? 0) >= (preset?.hIn ?? 0);
+    return (orientation === "landscape") === nativeL ? "bottom" : "right";
+  };
 
-  // When the preset really changes, reset the notch to that preset's defaults
-  useEffect(() => {
-    if (prevPresetRef.current === selectedPresetId) return;
-    prevPresetRef.current = selectedPresetId;
-    if (presetNotch) {
+  // A different preset resets the notch to that preset's defaults.
+  // Done in the click handler (not an effect) so state updates in one pass.
+  const handleSelectPreset = (id) => {
+    onSelectPreset(id);
+    if (id === selectedPresetId) return;
+    const next = PHOTO_PRESETS.find((p) => p.id === id);
+    const nextNotch = next?.notch || null;
+    setEdgeOverride(null);
+    if (nextNotch) {
       const n = {
-        depthIn: presetNotch.depthIn,
-        widthIn: presetNotch.widthIn,
-        radiusIn: presetNotch.radiusIn,
+        depthIn: nextNotch.depthIn,
+        widthIn: nextNotch.widthIn,
+        radiusIn: nextNotch.radiusIn,
       };
       setNotchIn(n);
-      setEdgeOverride(null);
       setNotchRaw({
         depth: String(round3(fromIn(n.depthIn, unit))),
         width: String(round3(fromIn(n.widthIn, unit))),
         radius: String(round3(fromIn(n.radiusIn, unit))),
       });
-      emitNotch(n, autoEdge);
+      // App forces name tags to landscape when they are picked
+      const orientation = id.startsWith("nametag") ? "landscape" : photoOrientation;
+      emitNotch(n, edgeFor(next, orientation));
     } else {
       setNotchIn(null);
-      setEdgeOverride(null);
       emitNotch(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPresetId]);
-
-  // When orientation flips, re-send the same notch with the new edge
-  useEffect(() => {
-    if (prevOrientationRef.current === photoOrientation) return;
-    prevOrientationRef.current = photoOrientation;
-    setEdgeOverride(null);
-    if (notchIn) emitNotch(notchIn, autoEdge);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photoOrientation]);
-
-  const handleCustomChange = (wVal, hVal, unitType) => {
-    const wIn = toIn(parseFloat(wVal) || 1, unitType);
-    const hIn = toIn(parseFloat(hVal) || 1, unitType);
-
-    onChangeCustomSize({
-      wIn: clamp(wIn, 0.5, 12),
-      hIn: clamp(hIn, 0.5, 12),
-      unit: unitType,
-      wRaw: wVal,
-      hRaw: hVal,
-    });
   };
 
-  // Fix: convert the numbers on screen instead of reinterpreting them
-  const handleUnitChange = (nextUnit) => {
-    const nextW = round3(fromIn(toIn(parseFloat(customW) || 0, unit), nextUnit));
-    const nextH = round3(fromIn(toIn(parseFloat(customH) || 0, unit), nextUnit));
-    setUnit(nextUnit);
-    setCustomW(nextW);
-    setCustomH(nextH);
-    handleCustomChange(nextW, nextH, nextUnit);
+  // Orientation flip: re-send the same notch with the new automatic edge
+  const handleOrientationChange = (orientation) => {
+    onChangePhotoOrientation(orientation);
+    if (orientation === photoOrientation) return;
+    setEdgeOverride(null);
+    if (notchIn) emitNotch(notchIn, edgeFor(selectedPreset, orientation));
+  };
 
+  // Convert the notch numbers on screen instead of reinterpreting them
+  const handleUnitChange = (nextUnit) => {
+    setUnit(nextUnit);
     if (notchIn) {
       setNotchRaw({
         depth: String(round3(fromIn(notchIn.depthIn, nextUnit))),
@@ -242,7 +227,7 @@ export default function PresetPicker({
         <div style={{ display: "flex", background: "rgba(0,0,0,0.06)", borderRadius: "999px", padding: "2px" }}>
           <button
             type="button"
-            onClick={() => onChangePhotoOrientation("portrait")}
+            onClick={() => handleOrientationChange("portrait")}
             style={{
               padding: "4px 12px",
               borderRadius: "999px",
@@ -263,7 +248,7 @@ export default function PresetPicker({
 
           <button
             type="button"
-            onClick={() => onChangePhotoOrientation("landscape")}
+            onClick={() => handleOrientationChange("landscape")}
             style={{
               padding: "4px 12px",
               borderRadius: "999px",
@@ -291,7 +276,7 @@ export default function PresetPicker({
           return (
             <button
               key={preset.id}
-              onClick={() => onSelectPreset(preset.id)}
+              onClick={() => handleSelectPreset(preset.id)}
               className={isActive ? "bubble-pill-active" : "bubble-pill-inactive"}
               title={preset.description}
             >

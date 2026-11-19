@@ -3,6 +3,8 @@
  */
 import { getV5V6OutlinePath, V5_V6_SHEET_LAYOUT, isShapedPreset, getShapePath } from "./presets";
 import { traceNotchCavityPath } from "./notchShape";
+import { packShelves, packUniformGrid } from "./layout";
+import { presetKey, hasMixedSizes, isNameTagPreset } from "./photoSizes";
 
 /**
  * True when the V5/V6 "4 stickers on one A4 landscape sheet" (2x2) layout applies:
@@ -43,14 +45,6 @@ function notchCavityPath2D(x, y, w, h, notch, photoPreset, dpi) {
   const p = new Path2D();
   const pxPerIn = photoPreset?.wIn && w ? w / photoPreset.wIn : dpi;
   traceNotchCavityPath(pathAsCtx(p), x, y, w, h, notch, pxPerIn);
-  return p;
-}
-
-/** Cell rectangle minus the notch. Use with clip(path, "evenodd"). */
-function notchedCellPath2D(x, y, w, h, notch, photoPreset, dpi) {
-  const p = new Path2D();
-  p.rect(x, y, w, h);
-  p.addPath(notchCavityPath2D(x, y, w, h, notch, photoPreset, dpi));
   return p;
 }
 
@@ -109,6 +103,40 @@ function pyramid3Position(i, sheetWpx, photoWpx, dpi) {
     : Math.round(slot.xIn * dpi);
   const y = Math.round(slot.yIn * dpi);
   return { x, y, col: i % 2, row: Math.floor(i / 2) };
+}
+
+/** Cell rectangle minus the notch. Use with clip(path, "evenodd"). */
+function notchedCellPath2D(x, y, w, h, notch, photoPreset, dpi) {
+  const p = new Path2D();
+  p.rect(x, y, w, h);
+  p.addPath(notchCavityPath2D(x, y, w, h, notch, photoPreset, dpi));
+  return p;
+}
+
+/**
+ * Draws one cropped photo into its cell, clipped to the preset's cut shape
+ * (custom shape, notch, or V5/V6 die-cut outline), so the notch / window stay
+ * white (transparent in a PNG export).
+ */
+function drawCellPhoto(ctx, croppedCanvas, photoPreset, x, y, w, h, dpi) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  if (isShapedPreset(photoPreset)) {
+    ctx.clip(shapePath2D(photoPreset, x, y, w, h, dpi));
+  } else if (photoPreset?.notch) {
+    // Notch presets (BLCK V2-V4): cell rectangle minus the notch
+    ctx.clip(notchedCellPath2D(x, y, w, h, photoPreset.notch, photoPreset, dpi), "evenodd");
+  } else if (photoPreset?.hasDieCutContour && w >= h) {
+    const p = new Path2D();
+    p.addPath(
+      new Path2D(getV5V6OutlinePath(photoPreset.wIn, photoPreset.hIn)),
+      new DOMMatrix([dpi, 0, 0, dpi, x, y]),
+    );
+    ctx.clip(p);
+  }
+  ctx.drawImage(croppedCanvas, x, y);
+  ctx.restore();
 }
 
 /**
@@ -194,10 +222,20 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
     cutGuideColor = "#b0b0be",
     cutGuideOpacity = 1,
     bgColor = "#ffffff",
+    photoPresets = null,
   } = options;
 
   if (!croppedCanvases || croppedCanvases.length === 0) {
     return [];
+  }
+
+  // Per-photo sizes: different presets on one sheet use shelf packing;
+  // one shared per-photo size uses the normal grid at that size
+  if (photoPresets?.length) {
+    if (hasMixedSizes(photoPresets)) {
+      return generateMixedSheetCanvases(croppedCanvases, photoPresets, sheetPreset, photoMetadata, options);
+    }
+    photoPreset = photoPresets[0];
   }
 
   const photoWpx = Math.round(presetWidthIn(photoPreset) * dpi);
@@ -288,41 +326,7 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
         y = Math.round(offsetY + row * rowStep);
       }
 
-      // Draw photo canvas onto sheet (clipped to the custom shape if any)
-      if (isShapedPreset(photoPreset)) {
-        ctx.save();
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.clip(shapePath2D(photoPreset, x, y, photoWpx, photoHpx, dpi));
-        ctx.drawImage(croppedCanvas, x, y);
-        ctx.restore();
-      } else if (photoPreset?.notch) {
-        // Notch presets (BLCK V2-V4): cell rectangle minus the notch, so the
-        // notch area stays unpainted (transparent in a PNG export)
-        ctx.save();
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.clip(
-          notchedCellPath2D(x, y, photoWpx, photoHpx, photoPreset.notch, photoPreset, dpi),
-          "evenodd",
-        );
-        ctx.drawImage(croppedCanvas, x, y);
-        ctx.restore();
-      } else if (photoPreset?.hasDieCutContour && photoWpx >= photoHpx) {
-        ctx.save();
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        const p = new Path2D();
-        p.addPath(
-          new Path2D(getV5V6OutlinePath(photoPreset.wIn, photoPreset.hIn)),
-          new DOMMatrix([dpi, 0, 0, dpi, x, y]),
-        );
-        ctx.clip(p);
-        ctx.drawImage(croppedCanvas, x, y);
-        ctx.restore();
-      } else {
-        ctx.drawImage(croppedCanvas, x, y);
-      }
+      drawCellPhoto(ctx, croppedCanvas, photoPreset, x, y, photoWpx, photoHpx, dpi);
 
       // Store layout cell bounds for interactive drag & click handlers
       layoutCells.push({
@@ -458,6 +462,161 @@ export function generateSheetCanvases(croppedCanvases, photoPreset, sheetPreset,
   }
 
   return sheets;
+}
+
+/**
+ * Mixed-size sheets: every photo has its own preset (`photoPresets[i]`).
+ * Rows hold one size each (packShelves), cut guides follow each item's own
+ * shape, and a new sheet starts when the page is full. The fixed V5/V6 2x2
+ * arrangement does not apply here.
+ */
+function generateMixedSheetCanvases(croppedCanvases, photoPresets, sheetPreset, photoMetadata = [], options = {}) {
+  const {
+    dpi = 300,
+    marginIn = 0.3,
+    gutterIn = 0.15,
+    showCutGuides = true,
+    cutGuideStyle = "dashed",
+    showSequenceLabels = false,
+    pageLabel = null,
+    pageLabelOverrides = {},
+    cutGuideColor = "#b0b0be",
+    cutGuideOpacity = 1,
+    bgColor = "#ffffff",
+  } = options;
+
+  const sheetWpx = Math.round(sheetPreset.wIn * dpi);
+  const baseSheetHpx = Math.round(sheetPreset.hIn * dpi);
+  const marginPx = Math.round(marginIn * dpi);
+  // A little room between items even at 0 gutter: shapes differ, so edges are not shared
+  const gutterPx = Math.max(Math.round(gutterIn * dpi), Math.round(dpi * 0.02));
+  const labelFontPx = Math.max(10, Math.round(dpi * 0.035));
+  const labelStripH = showSequenceLabels ? labelFontPx + Math.round(dpi * 0.012) : 0;
+
+  const sizes = croppedCanvases.map((_, i) => {
+    const preset = photoPresets[i];
+    return {
+      w: Math.round(presetWidthIn(preset) * dpi),
+      h: Math.round(presetHeightIn(preset) * dpi),
+      key: presetKey(preset),
+    };
+  });
+
+  const packOpts = {
+    sheetW: sheetWpx,
+    sheetH: sheetPreset.isContinuous ? Infinity : baseSheetHpx,
+    margin: marginPx,
+    gap: gutterPx,
+    items: sizes,
+    rowExtra: labelStripH, // labels go under each row, outside the cut lines
+  };
+
+  let pages;
+  if (photoPresets.every(isNameTagPreset)) {
+    // Name tags (any mix of V2-V4 / V5 / V6): a fixed grid, the same slots on
+    // every page, each tag centered in a slot sized for the largest tag
+    const cellW = Math.max(...sizes.map((s) => s.w));
+    const cellH = Math.max(...sizes.map((s) => s.h));
+    if (!labelStripH && isPyramid3Layout(photoPresets[0], sheetPreset, sheetWpx, baseSheetHpx, cellW, cellH)) {
+      // A4 landscape: the same 4 positions as an all-V5/V6 sheet
+      const per = V5_V6_SHEET_LAYOUT.length;
+      pages = [];
+      sizes.forEach((s, index) => {
+        const k = index % per;
+        if (k === 0) pages.push([]);
+        const slot = pyramid3Position(k, sheetWpx, cellW, dpi);
+        pages[pages.length - 1].push({
+          index,
+          x: slot.x + (cellW - s.w) / 2,
+          y: slot.y + (cellH - s.h) / 2,
+          w: s.w,
+          h: s.h,
+          row: slot.row,
+        });
+      });
+    } else {
+      ({ pages } = packUniformGrid(packOpts));
+    }
+  } else {
+    ({ pages } = packShelves(packOpts));
+  }
+
+  const totalSheets = pages.length;
+  return pages.map((placed, s) => {
+    const bottom = placed.reduce((m, c) => Math.max(m, c.y + c.h + labelStripH), 0);
+    const sheetHpx = sheetPreset.isContinuous ? Math.max(baseSheetHpx, Math.ceil(bottom + marginPx)) : baseSheetHpx;
+
+    const sheetCanvas = document.createElement("canvas");
+    sheetCanvas.width = sheetWpx;
+    sheetCanvas.height = sheetHpx;
+    const ctx = sheetCanvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    if (bgColor) {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, sheetWpx, sheetHpx);
+    }
+
+    const layoutCells = placed.map((c) => {
+      const x = Math.round(c.x);
+      const y = Math.round(c.y);
+      drawCellPhoto(ctx, croppedCanvases[c.index], photoPresets[c.index], x, y, c.w, c.h, dpi);
+      return {
+        photoId: photoMetadata[c.index]?.id,
+        photoItem: photoMetadata[c.index],
+        index: c.index,
+        col: 0,
+        row: c.row,
+        x,
+        y,
+        w: c.w,
+        h: c.h,
+        labelStripH: 0,
+        preset: photoPresets[c.index],
+      };
+    });
+
+    if (showSequenceLabels && bgColor) {
+      layoutCells.forEach((cell) => {
+        const name = cell.photoItem?.name || `#${cell.index + 1}`;
+        // stripH > 0 + isLastRow => label drawn in the reserved strip under the cell
+        drawSequenceLabel(ctx, cell.x, cell.y, cell.w, cell.h, name, dpi, gutterPx, labelStripH, true);
+      });
+    }
+
+    if (showCutGuides && cutGuideStyle !== "none") {
+      layoutCells.forEach((cell) =>
+        drawCutGuides(
+          ctx, cell.x, cell.y, cell.w, cell.h, cutGuideStyle, dpi,
+          cutGuideColor, cutGuideOpacity, cell.preset.hole, cell.preset,
+        ),
+      );
+    }
+
+    let pageLabelBounds = null;
+    let pageLabelText = "";
+    const pageOverride = pageLabelOverrides ? pageLabelOverrides[s] : null;
+    const resolvedLabel = pageOverride ? { ...pageLabel, ...pageOverride } : { ...pageLabel };
+    if (bgColor && resolvedLabel && resolvedLabel.enabled && resolvedLabel.text?.trim()) {
+      pageLabelBounds = drawPageLabel(ctx, resolvedLabel, sheetWpx, sheetHpx, marginPx, dpi);
+      pageLabelText = resolvedLabel.text;
+    }
+
+    return {
+      canvas: sheetCanvas,
+      sheetIndex: s,
+      totalSheets,
+      cols: 0,
+      rows: new Set(placed.map((c) => c.row)).size,
+      sheetWpx,
+      sheetHpx,
+      photosCount: placed.length,
+      layoutCells,
+      pageLabelBounds,
+      pageLabelText,
+      mixedSizes: true,
+    };
+  });
 }
 
 /**

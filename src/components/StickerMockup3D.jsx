@@ -18,24 +18,25 @@ const labelStyle = { fontSize: 12, fontWeight: 600, color: "#57536b", display: "
 const inputStyle = { width: 64, padding: "5px 8px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 12, fontWeight: 700 };
 const iconBtn = { border: "none", background: "rgba(143,127,224,0.14)", color: "#57536b", borderRadius: 999, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700 };
 
-export default function StickerMockup3D({ photos = [], photoPreset, frameBgColor = "#ffffff" }) {
+export default function StickerMockup3D({ photos = [], photoPreset: batchPreset, getPhotoPreset, frameBgColor = "#ffffff" }) {
   const mountRef = useRef(null);
   const threeRef = useRef(null);
   const [device, setDevice] = useState(DEFAULT_DEVICE);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [autoRotate, setAutoRotate] = useState(false);
-  const [sticker, setSticker] = useState(null); // { canvas, sw, sh }
+  const [renderedSticker, setSticker] = useState(null); // { canvas, sw, sh }
 
   const safeIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
+  // Each photo wraps at its own size when per-photo sizes are used
+  const photoPreset = photos[safeIndex] && getPhotoPreset ? getPhotoPreset(photos[safeIndex]) : batchPreset;
+  // No photo/preset -> no sticker (derived, so the effect never has to reset state)
+  const sticker = photos[safeIndex] && photoPreset ? renderedSticker : null;
 
   // 1) Render the selected photo as a sticker canvas (always wide, notch on the bottom)
   useEffect(() => {
     let cancelled = false;
     const photo = photos[safeIndex];
-    if (!photo || !photoPreset) {
-      setSticker(null);
-      return undefined;
-    }
+    if (!photo || !photoPreset) return undefined;
     const sw = Math.max(photoPreset.wIn, photoPreset.hIn);
     const sh = Math.min(photoPreset.wIn, photoPreset.hIn);
     const basePreset = PHOTO_PRESETS.find((p) => p.id === photoPreset.id) || photoPreset;

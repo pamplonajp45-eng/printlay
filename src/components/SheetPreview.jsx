@@ -1025,20 +1025,8 @@ function RenderedCanvasHost({ canvas }) {
     if (!container || !canvas) return;
 
     // Retain full uncompressed resolution directly from the sheet canvas buffer.
-    // Display size is constrained via CSS while maintaining exact aspect ratio,
-    // allowing native hardware GPU acceleration and ultra-crisp zooming without
-    // any downsampling or JPEG compression loss.
-    canvas.style.maxHeight = "680px";
-    canvas.style.maxWidth = "100%";
-    canvas.style.height = "auto";
-    canvas.style.display = "block";
-    canvas.style.pointerEvents = "none";
-    canvas.style.userSelect = "none";
-    canvas.style.webkitUserSelect = "none";
-    canvas.style.borderRadius = "3px";
-    canvas.oncontextmenu = (e) => e.preventDefault();
-    canvas.ondragstart = (e) => e.preventDefault();
-
+    // Display size is constrained via CSS (.rendered-canvas-host canvas in
+    // index.css) so the canvas prop itself is never mutated.
     container.innerHTML = "";
     container.appendChild(canvas);
 
@@ -1049,5 +1037,13 @@ function RenderedCanvasHost({ canvas }) {
     };
   }, [canvas]);
 
-  return <div ref={containerRef} style={{ lineHeight: 0 }} />;
+  return (
+    <div
+      ref={containerRef}
+      className="rendered-canvas-host"
+      style={{ lineHeight: 0 }}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+    />
+  );
 }

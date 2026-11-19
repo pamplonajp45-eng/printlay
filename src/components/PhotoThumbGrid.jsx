@@ -1,5 +1,6 @@
 import { X, Crop, Copy, ArrowLeft, ArrowRight, Sparkles, Type } from "lucide-react";
 import { PHOTO_FILTERS } from "../lib/cropEngine";
+import { PER_PHOTO_SIZES } from "../lib/photoSizes";
 
 export default function PhotoThumbGrid({
   photos,
@@ -9,6 +10,9 @@ export default function PhotoThumbGrid({
   onOpenCropModal,
   onUpdatePhotoFilter,
   onApplyFilterToAll,
+  defaultSizeName,
+  onChangePhotoSize,
+  isMixedSizes = false,
 }) {
   if (!photos || photos.length === 0) return null;
 
@@ -23,6 +27,12 @@ export default function PhotoThumbGrid({
           </span>
         </h3>
       </div>
+
+      <p style={{ margin: "-6px 0 12px", fontSize: 12, color: "#7c7893" }}>
+        {isMixedSizes
+          ? "Mixed sizes: photos are grouped by size, one size per row, and packed onto as many sheets as needed."
+          : "Tip: pick a size under any photo to mix sizes on one sheet (e.g. BLCK V2-V4 with V5 / V6)."}
+      </p>
 
       {/* Global / Batch Filter Bar */}
       <div
@@ -277,6 +287,36 @@ export default function PhotoThumbGrid({
                   ))}
                 </select>
               </div>
+
+              {/* Per-photo print size (mix sizes on one sheet) */}
+              {onChangePhotoSize && (
+                <div style={{ padding: "0 6px 4px", background: "#ffffff" }}>
+                  <select
+                    value={photo.sizeId || ""}
+                    onChange={(e) => onChangePhotoSize(photo.id, e.target.value || null)}
+                    style={{
+                      width: "100%",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: photo.sizeId ? "#7c6dd8" : "#57536b",
+                      border: "1px solid rgba(0,0,0,0.1)",
+                      borderRadius: "6px",
+                      padding: "2px 4px",
+                      background: photo.sizeId ? "rgba(143, 127, 224, 0.08)" : "#faf9fe",
+                      cursor: "pointer",
+                      outline: "none",
+                    }}
+                    title="Print size for this photo"
+                  >
+                    <option value="">Size: {defaultSizeName || "Default"}</option>
+                    {PER_PHOTO_SIZES.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Action buttons overlay bar */}
               <div

@@ -63,9 +63,6 @@ export const V5_V6_SHEET_LAYOUT = [
   { xIn: 5.897, yIn: 4.284 }, // bottom-right
 ];
 
-// Legacy fallback reference
-const NAME_TAG_HOLE = V5_V6_HOLE;
-
 export const PHOTO_PRESETS = [
   {
     id: "polaroidClassic",

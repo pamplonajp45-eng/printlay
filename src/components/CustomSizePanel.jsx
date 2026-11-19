@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const UNITS = ["in", "cm", "mm"];
 const TO_INCHES = { in: 1, cm: 1 / 2.54, mm: 1 / 25.4 };
@@ -57,16 +57,18 @@ export default function CustomSizePanel({ value, onChange }) {
   const [hDraft, setHDraft] = useState(String(fromInches(heightIn, "in")));
 
   // Keep the text boxes in sync when the unit or outside values change,
-  // without clobbering something half-typed like "3."
-  useEffect(() => {
+  // without clobbering something half-typed like "3.". Adjusting state while
+  // rendering (instead of in an effect) avoids an extra cascading render.
+  const [synced, setSynced] = useState({ unit, widthIn, heightIn });
+  if (synced.unit !== unit || synced.widthIn !== widthIn || synced.heightIn !== heightIn) {
+    setSynced({ unit, widthIn, heightIn });
     if (toInches(parseFloat(wDraft), unit) !== widthIn) {
       setWDraft(String(fromInches(widthIn, unit)));
     }
     if (toInches(parseFloat(hDraft), unit) !== heightIn) {
       setHDraft(String(fromInches(heightIn, unit)));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unit, widthIn, heightIn]);
+  }
 
   const update = (patch) => onChange({ ...value, ...patch });
 
