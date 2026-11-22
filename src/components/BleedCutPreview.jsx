@@ -21,6 +21,8 @@ const PX_PER_MM = 96 / 25.4; // 100% zoom = real size on a 96 dpi screen
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const PANEL_KEY = "printlay.bleedCutPanel.v1";
 const WARNINGS_KEY = "printlay.bleedCutWarnings.v1";
+const ORIENT_KEY = "printlay.bleedCutOrientation.v1";
+const A4_LANDSCAPE = { widthMm: A4.heightMm, heightMm: A4.widthMm };
 const EXPORT_DPI = 300;
 
 /** Warning badges: OFF unless the user turned them on. */
@@ -29,6 +31,15 @@ function readShowWarnings() {
     return localStorage.getItem(WARNINGS_KEY) === "on";
   } catch {
     return false;
+  }
+}
+
+/** Paper orientation for the bleed sheet: portrait unless the user picked landscape. */
+function readOrientation() {
+  try {
+    return localStorage.getItem(ORIENT_KEY) === "landscape" ? "landscape" : "portrait";
+  } catch {
+    return "portrait";
   }
 }
 
@@ -62,6 +73,17 @@ export default function BleedCutPreview({
   const [zoom, setZoom] = useState(null); // null = fit
   const [fitScale, setFitScale] = useState(2);
   const [panelOpen, setPanelOpen] = useState(readPanelOpen);
+  const [orientation, setOrientationState] = useState(readOrientation);
+  const setOrientation = (o) => {
+    setOrientationState(o);
+    try {
+      localStorage.setItem(ORIENT_KEY, o);
+    } catch {
+      /* storage blocked: keep in memory */
+    }
+  };
+  // The sheet everything uses: layout, preview, exports and cut files
+  const sheetSize = orientation === "landscape" ? A4_LANDSCAPE : A4;
   const [hovered, setHovered] = useState(null);
   const [busy, setBusy] = useState(null);
   const [showWarnings, setShowWarningsState] = useState(readShowWarnings);
@@ -97,8 +119,8 @@ export default function BleedCutPreview({
   const getShape = useCallback((p) => shapeByPreset.get(p), [shapeByPreset]);
 
   const plan = useMemo(
-    () => planBleedSheets({ presets, getShape, settings: { gapMm, marginMm, allowRotate }, sheet: A4 }),
-    [presets, getShape, gapMm, marginMm, allowRotate],
+    () => planBleedSheets({ presets, getShape, settings: { gapMm, marginMm, allowRotate }, sheet: sheetSize }),
+    [presets, getShape, gapMm, marginMm, allowRotate, sheetSize],
   );
   const sheetCount = Math.max(1, plan.pages.length);
   const sheet = Math.min(sheetIndex, sheetCount - 1);
@@ -107,7 +129,7 @@ export default function BleedCutPreview({
   // Overlap check uses the largest bleed on the sheet
   const sheetBleedMm = items.reduce((m, it) => Math.max(m, it.shape.bleedMm), bleedMm);
   const warnings = useBleedWarnings({
-    items, bleedShape: getShape(preset), croppedCanvases: canvases, preset, dpi, bleedMm: sheetBleedMm, sheet: A4, marginMm,
+    items, bleedShape: getShape(preset), croppedCanvases: canvases, preset, dpi, bleedMm: sheetBleedMm, sheet: sheetSize, marginMm,
   });
 
   // Fit-to-view: measure the stage
@@ -117,13 +139,13 @@ export default function BleedCutPreview({
     const measure = () => {
       const w = el.clientWidth - 64;
       const h = el.clientHeight - 64;
-      if (w > 0 && h > 0) setFitScale(Math.min(w / A4.widthMm, h / A4.heightMm));
+      if (w > 0 && h > 0) setFitScale(Math.min(w / sheetSize.widthMm, h / sheetSize.heightMm));
     };
     // ResizeObserver also fires once right after observe(), which does the first fit
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [panelOpen]);
+  }, [panelOpen, sheetSize]);
 
   const scale = zoom == null ? fitScale : zoom * PX_PER_MM;
   const zoomPct = Math.round((scale / PX_PER_MM) * 100);
@@ -173,7 +195,7 @@ export default function BleedCutPreview({
   const renderExport = (background) => {
     const canvas = document.createElement("canvas");
     renderSheet(canvas, {
-      sheet: A4,
+      sheet: sheetSize,
       dpi: EXPORT_DPI,
       slots: items.map((it, i) => ({ ...it, image: canvases[i] })),
       background,
@@ -191,7 +213,7 @@ export default function BleedCutPreview({
       if (kind === "svg") {
         // Artwork without printed guides (the cut paths are the guides) + exact cut lines, one A4 file
         const art = renderExport("#ffffff").toDataURL("image/png");
-        const svg = buildCutSvg({ paths: buildCutPaths(items), artworkDataUrl: art, title: name });
+        const svg = buildCutSvg({ paths: buildCutPaths(items), sheet: sheetSize, artworkDataUrl: art, title: name });
         downloadText(svg, `${name}-cut.svg`, "image/svg+xml");
       } else if (kind === "dxf") {
         // Silhouette Studio Basic (no SVG): print PNG (no guides, true A4 at 300 DPI)
@@ -199,11 +221,11 @@ export default function BleedCutPreview({
         await downloadPng(renderExport("#ffffff"), `${name}-print.png`, EXPORT_DPI);
         // Real size (mm). Silhouette Studio fits DXF imports to its own size, so the
         // blue page frame is there to resize it back to exactly the page.
-        const dxf = buildCutDxf({ paths: buildCutPaths(items), pageFrame: true });
+        const dxf = buildCutDxf({ paths: buildCutPaths(items), sheet: sheetSize, pageFrame: true });
         downloadText(dxf, `${name}-cut.dxf`, "application/dxf");
       } else if (kind === "png") await downloadPng(renderExport(null), `${name}.png`, EXPORT_DPI);
-      else if (kind === "pdf") await downloadPdf(renderExport("#ffffff"), A4, `${name}.pdf`);
-      else printCanvas(renderExport("#ffffff"), A4);
+      else if (kind === "pdf") await downloadPdf(renderExport("#ffffff"), sheetSize, `${name}.pdf`);
+      else printCanvas(renderExport("#ffffff"), sheetSize);
     } catch (err) {
       console.error("Bleed export failed", err);
     } finally {
@@ -221,7 +243,7 @@ export default function BleedCutPreview({
         <div className="bcp-title">
           <Scissors size={17} />
           <h2>Bleed-cut preview</h2>
-          <span className="bcp-muted">{plan.mixed ? "Mixed sizes" : presets[0]?.name || preset?.name || "Custom"} · A4</span>
+          <span className="bcp-muted">{plan.mixed ? "Mixed sizes" : presets[0]?.name || preset?.name || "Custom"} · A4 {orientation}</span>
         </div>
 
         <div className="bcp-group" role="group" aria-label="Sheet">
@@ -231,6 +253,17 @@ export default function BleedCutPreview({
           <span className="bcp-pager">Sheet {sheet + 1} / {sheetCount}</span>
           <button type="button" className="bcp-icon-btn" onClick={() => goSheet(1)} disabled={sheet >= sheetCount - 1} title="Next sheet (→)">
             <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="bcp-group" role="group" aria-label="Paper orientation">
+          <button type="button" className={`bcp-chip ${orientation === "portrait" ? "active" : ""}`}
+            onClick={() => setOrientation("portrait")} aria-pressed={orientation === "portrait"} title="A4 portrait (210 × 297 mm)">
+            Portrait
+          </button>
+          <button type="button" className={`bcp-chip ${orientation === "landscape" ? "active" : ""}`}
+            onClick={() => setOrientation("landscape")} aria-pressed={orientation === "landscape"} title="A4 landscape (297 × 210 mm)">
+            Landscape
           </button>
         </div>
 
@@ -281,9 +314,9 @@ export default function BleedCutPreview({
 
       <div className="bcp-body">
         <div className="bcp-stage" ref={stageRef}>
-          <div className="bcp-paper" style={{ width: A4.widthMm * scale, height: A4.heightMm * scale }}>
+          <div className="bcp-paper" style={{ width: sheetSize.widthMm * scale, height: sheetSize.heightMm * scale }}>
             <BleedSheetSvg
-              sheet={A4}
+              sheet={sheetSize}
               marginMm={marginMm}
               items={items}
               canvases={canvases}

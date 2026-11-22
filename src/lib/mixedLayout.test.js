@@ -241,3 +241,24 @@ describe("planBleedSheets name-tag mix", async () => {
     expect(plan.pages.flat().map((it) => it.index)).toEqual(presets.map((_, i) => i));
   });
 });
+
+describe("planBleedSheets on A4 landscape", async () => {
+  const { planBleedSheets } = await import("./bleedSheets");
+  const { getBleedShape } = await import("./bleedGeometry");
+  const tag = (id) => getOrientedPreset(PHOTO_PRESETS.find((p) => p.id === id), "landscape");
+  const v2 = tag("nametag-notch");
+  const v5 = tag("nametag-hole-v5");
+  const getShape = (p) => getBleedShape(p, 1.5, 0);
+  const landscape = { widthMm: 297, heightMm: 210 };
+
+  it("fits 4 name tags per landscape sheet without turning them, inside the page", () => {
+    const presets = [v5, v2, v5, v2, v5];
+    const plan = planBleedSheets({ presets, getShape, settings: { gapMm: 3, marginMm: 5, allowRotate: true }, sheet: landscape });
+    expect(plan.pages.map((p) => p.length)).toEqual([4, 1]);
+    for (const it of plan.pages.flat()) {
+      expect(it.rotated).toBe(false);
+      expect(it.x + it.w).toBeLessThanOrEqual(297 - 5 + 1e-6);
+      expect(it.y + it.h).toBeLessThanOrEqual(210 - 5 + 1e-6);
+    }
+  });
+});

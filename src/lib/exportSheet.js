@@ -39,7 +39,9 @@ export async function downloadPng(canvas, filename = "printlay-sheet.png", dpi =
  */
 export async function downloadPdf(canvas, sheet = A4, filename = "printlay-sheet.pdf") {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ unit: "mm", format: [sheet.widthMm, sheet.heightMm], orientation: "portrait", compress: true });
+  // jsPDF swaps width/height to match `orientation`, so it must follow the sheet
+  const orientation = sheet.widthMm > sheet.heightMm ? "landscape" : "portrait";
+  const pdf = new jsPDF({ unit: "mm", format: [sheet.widthMm, sheet.heightMm], orientation, compress: true });
   pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, sheet.widthMm, sheet.heightMm, undefined, "FAST");
   pdf.save(filename);
 }
