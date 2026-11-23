@@ -333,6 +333,16 @@ export const PHONE_MODELS = [
     edges: iphoneEdges(71.5, 146.7, { port: 8 }),
   },
   {
+    id: "iphone-13-pro",
+    brand: "Apple",
+    name: "iPhone 13 Pro",
+    bodySource: "official",
+    body: { w: 71.5, h: 146.7, t: 7.65, r: 10 },
+    // Triple-lens Pro plateau: much bigger than the iPhone 13's
+    cameras: [box(5, 5, 35.5, 37, 9)],
+    edges: iphoneEdges(71.5, 146.7, { port: 8 }),
+  },
+  {
     id: "iphone-14",
     brand: "Apple",
     name: "iPhone 14",
