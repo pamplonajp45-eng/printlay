@@ -13,8 +13,8 @@ import {
 import { shapeToSvgPath } from "../lib/bleedGeometry";
 
 const ACCENT = "#8f7fe0";
-const INK = "#3d3856";
-const MUTED = "#57536b";
+const INK = "var(--pl-ink)";
+const MUTED = "var(--pl-muted)";
 
 const panelStyle = {
   background: "rgba(143, 127, 224, 0.08)",
@@ -43,7 +43,7 @@ const inputStyle = {
 
 const pillGroup = {
   display: "flex",
-  background: "rgba(255,255,255,0.7)",
+  background: "var(--pl-surface)",
   borderRadius: "999px",
   padding: "2px",
   flexWrap: "wrap",
@@ -69,8 +69,8 @@ const smallBtn = {
   padding: "4px 10px",
   borderRadius: "999px",
   border: "1px solid rgba(143, 127, 224, 0.35)",
-  background: "rgba(255,255,255,0.7)",
-  color: "#6f5ec7",
+  background: "var(--pl-surface)",
+  color: "var(--pl-accent-text)",
   fontSize: 12,
   fontWeight: 700,
   cursor: "pointer",
@@ -79,7 +79,7 @@ const smallBtn = {
 const iconBtn = {
   border: "none",
   background: "transparent",
-  color: "#a04a5a",
+  color: "var(--pl-danger)",
   cursor: "pointer",
   padding: 2,
   display: "inline-flex",
@@ -91,7 +91,7 @@ const cardStyle = {
   gap: 6,
   padding: 8,
   borderRadius: 12,
-  background: "rgba(255,255,255,0.55)",
+  background: "var(--pl-surface-soft)",
   border: "1px solid rgba(143, 127, 224, 0.15)",
 };
 
@@ -175,10 +175,10 @@ function TemplatePreview({ shape }) {
           strokeDasharray="1.6 1.2"
         />
       )}
-      <text x={W / 2} y={b.y + b.h / 2} textAnchor="middle" fontSize={5} fontWeight={700} fill="#8a85a3">
+      <text x={W / 2} y={b.y + b.h / 2} textAnchor="middle" fontSize={5} fontWeight={700} style={{ fill: "var(--pl-faint)" }}>
         BACK
       </text>
-      <text x={W / 2} y={H + pad + 5} textAnchor="middle" fontSize={5.2} fontWeight={700} fill={INK}>
+      <text x={W / 2} y={H + pad + 5} textAnchor="middle" fontSize={5.2} fontWeight={700} style={{ fill: INK }}>
         {W.toFixed(1)} × {H.toFixed(1)} mm
       </text>
     </svg>
@@ -253,7 +253,7 @@ export default function PhoneSkinPanel({ value, onChange }) {
 
       <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.45 }}>
         Body {fmt(model.body.w)} × {fmt(model.body.h)} × {fmt(model.body.t)} mm{" "}
-        <span style={{ color: "#8a85a3" }}>({edited ? "fine-tuned" : sourceText})</span>
+        <span style={{ color: "var(--pl-faint)" }}>({edited ? "fine-tuned" : sourceText})</span>
         {edited && (
           <button type="button" onClick={resetModel} style={{ ...smallBtn, marginLeft: 8, padding: "2px 8px" }}>
             <RotateCcw size={12} /> Reset
@@ -324,14 +324,14 @@ export default function PhoneSkinPanel({ value, onChange }) {
       {/* Preview */}
       <div
         style={{
-          background: "rgba(255,255,255,0.75)",
+          background: "var(--pl-surface)",
           borderRadius: 14,
           padding: 10,
           border: "1px solid rgba(143, 127, 224, 0.15)",
         }}
       >
         <TemplatePreview shape={shape} />
-        <div style={{ fontSize: 11, color: "#8a85a3", textAlign: "center", marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: "var(--pl-faint)", textAlign: "center", marginTop: 4 }}>
           Seen from the back (camera side). Dashed line = fold.
         </div>
       </div>
@@ -342,7 +342,7 @@ export default function PhoneSkinPanel({ value, onChange }) {
           gap: 8,
           fontSize: 12,
           lineHeight: 1.45,
-          color: "#6b5a2a",
+          color: "var(--pl-warn-text)",
           background: "rgba(255, 196, 0, 0.12)",
           border: "1px solid rgba(214, 160, 0, 0.3)",
           borderRadius: 12,

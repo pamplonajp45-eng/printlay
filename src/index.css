@@ -12,6 +12,16 @@
   --glass-shadow: 0 8px 32px rgba(99, 91, 166, 0.12);
   --pill-radius: 999px;
   --card-radius: 28px;
+
+  /* Panel tokens (Phone Skin panel); redefined for dark below */
+  --pl-ink: #3d3856;
+  --pl-muted: #57536b;
+  --pl-faint: #8a85a3;
+  --pl-surface: rgba(255, 255, 255, 0.72);
+  --pl-surface-soft: rgba(255, 255, 255, 0.55);
+  --pl-accent-text: #6f5ec7;
+  --pl-warn-text: #6b5a2a;
+  --pl-danger: #a04a5a;
 }
 
 .theme-dark {
@@ -20,6 +30,14 @@
   --glass-bg: rgba(35, 31, 53, 0.82);
   --glass-border: 1px solid rgba(194, 184, 255, 0.16);
   --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  --pl-ink: #f0edff;
+  --pl-muted: #cfc9e6;
+  --pl-faint: #a59fc2;
+  --pl-surface: rgba(255, 255, 255, 0.07);
+  --pl-surface-soft: rgba(255, 255, 255, 0.05);
+  --pl-accent-text: #d3cbff;
+  --pl-warn-text: #f3d98b;
+  --pl-danger: #f2a1ae;
   color: var(--text-dark);
 }
 
@@ -115,6 +133,28 @@ h1, h2, h3, h4, .heading {
   background: rgba(255, 255, 255, 0.1) !important;
   color: #f0edff !important;
   border-color: rgba(194, 184, 255, 0.3) !important;
+}
+
+/* Dark selects: the text is forced light above, but the native dropdown list
+   stays white on Windows, so the options vanished. Give the list a dark
+   background (and dark scrollbars via color-scheme). */
+.theme-dark .editor-sub-sidebar select {
+  color-scheme: dark;
+}
+.theme-dark .editor-sub-sidebar select option,
+.theme-dark .editor-sub-sidebar select optgroup {
+  background-color: #2a2540;
+  color: #f0edff;
+}
+
+/* Photo-card selects stay light in dark mode: keep their list light too */
+.theme-dark .editor-sub-sidebar .photo-thumb-card select {
+  color-scheme: light;
+}
+.theme-dark .editor-sub-sidebar .photo-thumb-card select option,
+.theme-dark .editor-sub-sidebar .photo-thumb-card select optgroup {
+  background-color: #f4f2fb;
+  color: #3d3856;
 }
 
 /* Phone skin fine-tune fields are narrow: no spinner arrows eating the digits */
