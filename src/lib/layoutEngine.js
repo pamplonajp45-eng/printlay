@@ -1,7 +1,7 @@
 /**
  * Sheet Bin-Packing Layout & Cut-Guide Engine
  */
-import { getV5V6OutlinePath, V5_V6_SHEET_LAYOUT, isShapedPreset, getShapePath } from "./presets";
+import { getV5V6OutlinePath, V5_V6_SHEET_LAYOUT, isShapedPreset, getPresetShapePath } from "./presets";
 import { traceNotchCavityPath } from "./notchShape";
 import { packShelves, packUniformGrid } from "./layout";
 import { presetKey, hasMixedSizes, isNameTagPreset } from "./photoSizes";
@@ -19,9 +19,11 @@ function isPyramid3Layout(photoPreset, sheetPreset, sheetWpx, sheetHpx, photoWpx
 /**
  * Path2D of the custom shape in canvas pixels. The inch-to-pixel scaling is
  * baked into the path, so stroke widths and dashes are not affected.
+ * Die-cut shapes (phone skins) carry their holes as extra sub-paths: clip
+ * with "evenodd".
  */
 function shapePath2D(preset, x, y, wPx, hPx, dpi) {
-  const d = getShapePath(preset.shape, wPx / dpi, hPx / dpi, preset.cornerRadiusIn || 0);
+  const d = getPresetShapePath(preset, wPx / dpi, hPx / dpi);
   const p = new Path2D();
   p.addPath(new Path2D(d), new DOMMatrix([dpi, 0, 0, dpi, x, y]));
   return p;
@@ -123,7 +125,7 @@ function drawCellPhoto(ctx, croppedCanvas, photoPreset, x, y, w, h, dpi) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   if (isShapedPreset(photoPreset)) {
-    ctx.clip(shapePath2D(photoPreset, x, y, w, h, dpi));
+    ctx.clip(shapePath2D(photoPreset, x, y, w, h, dpi), "evenodd");
   } else if (photoPreset?.notch) {
     // Notch presets (BLCK V2-V4): cell rectangle minus the notch
     ctx.clip(notchedCellPath2D(x, y, w, h, photoPreset.notch, photoPreset, dpi), "evenodd");

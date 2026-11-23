@@ -259,6 +259,20 @@ export const PHOTO_PRESETS = [
     hole: V5_V6_HOLE,
     hasDieCutContour: true,
   },
+  {
+    // Placeholder: App builds the real preset (outline, camera + button
+    // cut-outs) from the chosen phone model, see lib/phoneSkin.js
+    id: "phoneSkin",
+    name: "Phone Skin",
+    description: "Die-cut back skin for a phone model: back + side wrap with camera, button and port cut-outs",
+    wIn: 3.8,
+    hIn: 7.2,
+    wCm: 9.65,
+    hCm: 18.29,
+    isPolaroid: false,
+    aspectRatio: 3.8 / 7.2,
+    isPhoneSkin: true,
+  },
  {
   id: "custom",
   name: "Custom Size...",
@@ -389,8 +403,41 @@ export function getOrientedPreset(preset, orientation = "portrait") {
           },
         }
       : {}),
+    // A die-cut outline (phone skin) turns the same way as the hole
+    ...(preset.cutShapeMm
+      ? { cutShapeMm: rotateCutShape(preset.cutShapeMm, baseW * 25.4) }
+      : {}),
     orientation,
   };
+}
+
+/**
+ * Turns a die-cut shape ({ outer, holes }, mm) 90° the same way as
+ * getOrientedPreset turns holes: (x, y) -> (y, widthMm - x).
+ */
+export function rotateCutShape(shapeMm, widthMm) {
+  const f = (p) => ({ x: p.y, y: +(widthMm - p.x).toFixed(4) });
+  return {
+    outer: shapeMm.outer.map(f),
+    holes: (shapeMm.holes || []).map((h) => h.map(f)),
+  };
+}
+
+const cutPathCache = new WeakMap();
+
+/**
+ * SVG path (in inches) of a die-cut shape: the outline plus every hole as its
+ * own sub-path. Fill or clip it with the "evenodd" rule so the holes stay open.
+ */
+export function cutShapeToSvgPath(shapeMm) {
+  if (!shapeMm?.outer?.length) return "";
+  if (cutPathCache.has(shapeMm)) return cutPathCache.get(shapeMm);
+  const k = 1 / 25.4;
+  const sub = (poly) =>
+    `M${poly.map((p) => `${+(p.x * k).toFixed(5)} ${+(p.y * k).toFixed(5)}`).join("L")}Z`;
+  const d = [shapeMm.outer, ...(shapeMm.holes || [])].filter((p) => p.length >= 3).map(sub).join("");
+  cutPathCache.set(shapeMm, d);
+  return d;
 }
 
 /**
@@ -408,7 +455,20 @@ export function roundedRectPath(x, y, w, h, r = 0) {
   );
 }
 export function isShapedPreset(preset) {
-  return preset?.shape === "circle" || preset?.shape === "rounded";
+  return (
+    preset?.shape === "circle" ||
+    preset?.shape === "rounded" ||
+    (preset?.shape === "path" && Boolean(preset.cutShapeMm?.outer?.length))
+  );
+}
+
+/**
+ * SVG path (inches, top-left at 0,0) of a shaped preset's cut line. Die-cut
+ * ("path") shapes include their holes: draw or clip with "evenodd".
+ */
+export function getPresetShapePath(preset, wIn, hIn) {
+  if (preset?.shape === "path" && preset.cutShapeMm) return cutShapeToSvgPath(preset.cutShapeMm);
+  return getShapePath(preset?.shape, wIn, hIn, preset?.cornerRadiusIn || 0);
 }
 
 /**

@@ -47,6 +47,8 @@ export default function StickerMockup3D({ photos = [], photoPreset: batchPreset,
       aspectRatio: sw / sh,
       notch: photoPreset.notch ? { ...photoPreset.notch, edge: "bottom" } : undefined,
       hole: basePreset.hole || photoPreset.hole,
+      // A die-cut outline (phone skin) is authored upright; this wide wrap view can't use it
+      ...(photoPreset.cutShapeMm ? { shape: undefined, cutShapeMm: undefined } : {}),
     };
     loadImage(photo.url || photo.dataUrl)
       .then((img) => {

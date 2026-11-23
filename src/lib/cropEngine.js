@@ -1,5 +1,5 @@
 import { applyNotchMask } from "./notchShape";
-import { getHoleCutoutPath } from "./presets";
+import { getHoleCutoutPath, cutShapeToSvgPath } from "./presets";
 
 export const PHOTO_FILTERS = [
   { id: "none", name: "Normal", cssFilter: "none" },
@@ -282,6 +282,17 @@ export function applyShapeMasks(canvas, preset) {
   if (preset.notch) applyNotchMask(canvas, preset.notch, pxPerIn);
   // Enclosed hole (V5 / V6) so the window is see-through
   if (preset.hole) applyHoleMask(canvas, preset, pxPerIn);
+  // Die-cut outline (phone skin): outside the outline and the camera /
+  // button holes become transparent
+  if (preset.shape === "path" && preset.cutShapeMm) {
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.fillStyle = "#000";
+    ctx.scale(pxPerIn, pxPerIn);
+    ctx.fill(new Path2D(cutShapeToSvgPath(preset.cutShapeMm)), "evenodd");
+    ctx.restore();
+  }
   return canvas;
 }
 

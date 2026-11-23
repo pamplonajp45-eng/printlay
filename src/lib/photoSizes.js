@@ -1,7 +1,10 @@
 import { PHOTO_PRESETS, getOrientedPreset } from "./presets";
 
-/** Sizes a single photo can be switched to (custom needs its own dimensions, so it stays global). */
-export const PER_PHOTO_SIZES = PHOTO_PRESETS.filter((p) => p.id !== "custom");
+/**
+ * Sizes a single photo can be switched to. Custom and Phone Skin need their
+ * own settings (dimensions / phone model), so they stay batch-wide.
+ */
+export const PER_PHOTO_SIZES = PHOTO_PRESETS.filter((p) => p.id !== "custom" && !p.isPhoneSkin);
 
 /** BLCK name tags (V2-V4 notch, V5 / V6 window). */
 export function isNameTagPreset(preset) {

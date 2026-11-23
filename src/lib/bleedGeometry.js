@@ -365,8 +365,15 @@ export function getPresetCutPolygon(preset, cutInsetMm = 0) {
   const isRounded = shape === "rounded";
   const isDieCut = preset?.hasDieCutContour && widthMm >= heightMm;
   const hasNotch = Boolean(preset?.notch);
+  const cutShape = preset?.shape === "path" ? preset.cutShapeMm : null;
 
-  if (isCircle) {
+  if (cutShape?.outer?.length >= 3) {
+    // Die-cut outline (phone skin): outline + camera / button holes, already in mm
+    outer = cutShape.outer.map((p) => ({ x: p.x, y: p.y }));
+    for (const h of cutShape.holes || []) {
+      if (h.length >= 3) holes.push(h.map((p) => ({ x: p.x, y: p.y })));
+    }
+  } else if (isCircle) {
     outer = buildEllipsePolygon(widthMm, heightMm);
   } else if (isDieCut) {
     outer = buildV5V6Polygon(widthMm, heightMm);
@@ -413,6 +420,10 @@ export function getPresetCutPolygon(preset, cutInsetMm = 0) {
  */
 export function getPresetFillPolygon(preset) {
   const { widthMm, heightMm } = getPresetDimensionsMm(preset);
+  // Phone skin: the flaps are part of the sticker, so keep the outline (holes print over)
+  if (preset?.shape === "path" && preset.cutShapeMm?.outer?.length >= 3) {
+    return preset.cutShapeMm.outer.map((p) => ({ x: p.x, y: p.y }));
+  }
   if (preset?.shape === "circle") return buildEllipsePolygon(widthMm, heightMm);
   if (preset?.shape === "rounded") {
     const rMm = preset.cornerRadiusMm || (preset.cornerRadiusIn ? preset.cornerRadiusIn * 25.4 : 3.18);

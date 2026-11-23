@@ -48,6 +48,7 @@ export async function saveSession(state) {
       photoOrientation: state.photoOrientation || "portrait",
       sheetOrientation: state.sheetOrientation || "portrait",
       custom: state.custom,
+      phoneSkin: state.phoneSkin,
       showCutGuides: state.showCutGuides,
       cutGuideStyle: state.cutGuideStyle || "dashed",
       marginIn: state.marginIn,

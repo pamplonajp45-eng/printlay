@@ -14,6 +14,7 @@ import StickerMockup3D from "./components/StickerMockup3D";
 import { Upload, Image, FileText, Sliders, X, Type, Box, Scissors } from "lucide-react";
 
 import { PHOTO_PRESETS, SHEET_PRESETS, getOrientedPreset } from "./lib/presets";
+import { DEFAULT_PHONE_SKIN, buildPhoneSkinPreset } from "./lib/phoneSkin";
 import { resolvePhotoPreset, hasMixedSizes } from "./lib/photoSizes";
 import { cropToCanvas, loadImage, applyShapeMasks, cloneCanvas } from "./lib/cropEngine";
 import { generateSheetCanvases, calculateGridInfo } from "./lib/layoutEngine";
@@ -52,6 +53,9 @@ export default function App({ onNavigateHome }) {
   // Notch overrides coming from the PresetPicker's "Notch Dimensions" panel:
   // { depthIn, widthIn, radiusIn, edge } or null (use the preset's own notch)
   const [notch, setNotch] = useState(null);
+
+  // Phone skin template: model, coverage, wrap and any fine-tuned measurements
+  const [phoneSkin, setPhoneSkin] = useState(DEFAULT_PHONE_SKIN);
 
   const [showCutGuides, setShowCutGuides] = useState(true);
   const [cutGuideStyle, setCutGuideStyle] = useState("dashed");
@@ -112,6 +116,8 @@ export default function App({ onNavigateHome }) {
         aspectRatio: custom.widthIn / custom.heightIn,
         isPolaroid: false,
       };
+    } else if (photoPresetId === "phoneSkin") {
+      base = buildPhoneSkinPreset(phoneSkin);
     } else {
       base =
         PHOTO_PRESETS.find((p) => p.id === photoPresetId) || PHOTO_PRESETS[0];
@@ -122,7 +128,7 @@ export default function App({ onNavigateHome }) {
     return oriented.notch && notch
       ? { ...oriented, notch: { ...oriented.notch, ...notch } }
       : oriented;
-  }, [photoPresetId, custom, photoOrientation, notch]);
+  }, [photoPresetId, custom, phoneSkin, photoOrientation, notch]);
 
   const activeSheetPreset = useMemo(() => {
     const base =
@@ -204,6 +210,8 @@ export default function App({ onNavigateHome }) {
           shape: "rect",
           cornerRadiusIn: 0.5,
         });
+        if (session.phoneSkin)
+          setPhoneSkin({ ...DEFAULT_PHONE_SKIN, ...session.phoneSkin });
         if (session.showCutGuides !== undefined)
           setShowCutGuides(session.showCutGuides);
         if (session.cutGuideStyle) setCutGuideStyle(session.cutGuideStyle);
@@ -241,6 +249,7 @@ export default function App({ onNavigateHome }) {
         photoOrientation,
         sheetOrientation,
         custom,
+        phoneSkin,
         showCutGuides,
         cutGuideStyle,
         cutGuideColor,
@@ -262,6 +271,7 @@ export default function App({ onNavigateHome }) {
     photoOrientation,
     sheetOrientation,
     custom,
+    phoneSkin,
     showCutGuides,
     cutGuideStyle,
     cutGuideColor,
@@ -1061,6 +1071,9 @@ export default function App({ onNavigateHome }) {
                   <PresetPicker
                     selectedPresetId={photoPresetId}
                     onSelectPreset={(id) => {
+                      if (id === "phoneSkin" && photoPresetId !== "phoneSkin") {
+                        setPhotoOrientation("portrait"); // skins are authored upright
+                      }
                       setPhotoPresetId(id);
                       if (id.startsWith("nametag")) {
                         setPhotoOrientation("landscape");
@@ -1073,6 +1086,8 @@ export default function App({ onNavigateHome }) {
                     onChangeCustom={setCustom}
                     onChangeNotch={setNotch}
                     notchValue={notch}
+                    phoneSkin={phoneSkin}
+                    onChangePhoneSkin={setPhoneSkin}
                   />
                 )}
 

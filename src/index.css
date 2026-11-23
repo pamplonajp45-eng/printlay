@@ -117,6 +117,17 @@ h1, h2, h3, h4, .heading {
   border-color: rgba(194, 184, 255, 0.3) !important;
 }
 
+/* Phone skin fine-tune fields are narrow: no spinner arrows eating the digits */
+.pl-num-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.pl-num-input::-webkit-inner-spin-button,
+.pl-num-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Photo cards stay white in dark mode, so their filter / size dropdowns need
    dark text (the rule above would make it white on white) */
 .theme-dark .editor-sub-sidebar .photo-thumb-card select {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PHOTO_PRESETS, cmToIn, mmToIn } from "../lib/presets";
 import { RectangleVertical, RectangleHorizontal, Scissors } from "lucide-react";
 import CustomSizePanel from "./CustomSizePanel";
+import PhoneSkinPanel from "./PhoneSkinPanel";
 
 // ---- unit helpers (inches is the source of truth everywhere) ----
 const toIn = (val, unit) =>
@@ -86,6 +87,8 @@ export default function PresetPicker({
 
   onChangeNotch, // receives { depthIn, widthIn, radiusIn, edge } or null
   notchValue, // the parent's current notch, so edits survive closing/reopening this panel
+  phoneSkin, // phone skin settings (model, coverage, fine-tuned sizes)
+  onChangePhoneSkin,
 }) {
   const [unit, setUnit] = useState("in");
 
@@ -289,6 +292,11 @@ export default function PresetPicker({
       {/* Custom size panel if Custom preset is selected */}
       {selectedPresetId === "custom" && (
         <CustomSizePanel value={custom || { widthIn: 3, heightIn: 4, shape: "rect", cornerRadiusIn: 0.5 }} onChange={onChangeCustom} />
+      )}
+
+      {/* Phone skin: pick a model, coverage and fine-tune the cut-outs */}
+      {selectedPreset?.isPhoneSkin && onChangePhoneSkin && (
+        <PhoneSkinPanel value={phoneSkin} onChange={onChangePhoneSkin} />
       )}
 
       {/* NEW: Notch panel, shown when the selected preset has a notch */}
