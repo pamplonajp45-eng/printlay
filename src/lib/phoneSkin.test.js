@@ -73,9 +73,45 @@ describe("phone skin geometry", () => {
         const b = polygonBounds(s.outer);
         expect(b.width, `${m.id} ${style}`).toBeCloseTo(s.widthMm, 1);
         expect(b.height, `${m.id} ${style}`).toBeCloseTo(s.heightMm, 1);
-        expect(s.holes.length, `${m.id} ${style}`).toBeGreaterThanOrEqual(1);
+        // A camera window inside the back panel stays a closed hole; a
+        // full-width plateau (iPhone 17 / 18 Pro Max) opens to the edges
+        const insideWindow = m.cameras.some((c) => c.x > 0 && c.y > 0);
+        if (insideWindow) expect(s.holes.length, `${m.id} ${style}`).toBeGreaterThanOrEqual(1);
       }
     }
+  });
+});
+
+describe("iPhone data from Apple's dimensional drawings", () => {
+  it("iPhone 13 Pro: plateau window sits 1.15 mm in, extends to 42.39 x 43.62 mm", () => {
+    const s = buildPhoneSkinShape(findPhoneModel("iphone-13-pro"), { style: "back", clearanceMm: 0 });
+    expect(s.holes.length).toBe(1);
+    const b = polygonBounds(s.holes[0]);
+    expect(b.minX).toBeCloseTo(1.15, 2);
+    expect(b.minY).toBeCloseTo(1.15, 2);
+    expect(b.maxX).toBeCloseTo(42.39, 2);
+    expect(b.maxY).toBeCloseTo(43.62, 2);
+  });
+
+  it("buttons are centre ± half-length; bottom ports are mirrored into the back view", () => {
+    const m = findPhoneModel("iphone-15");
+    const vol = m.edges.find((e) => e.label === "Volume up");
+    expect(vol.edge).toBe("right");
+    expect(vol.from).toBeCloseTo(46.27 - 5.6, 2);
+    expect(vol.len).toBeCloseTo(11.2, 2);
+    const usb = m.edges.find((e) => e.label === "USB-C");
+    expect(usb.from).toBeCloseTo(71.63 - 40.31, 2);
+    expect(usb.len).toBeCloseTo(9, 2);
+    expect(m.edges.find((e) => e.label === "Side button").edge).toBe("left");
+  });
+
+  it("iPhone 17 Pro Max: the full-width plateau takes the top strip, the template starts below it", () => {
+    const m = findPhoneModel("iphone-17-pro-max");
+    const s = buildPhoneSkinShape(m, { style: "back", clearanceMm: 0.5 });
+    // Below the plateau (its rounded bottom corners leave a little panel at the sides)
+    expect(s.heightMm).toBeGreaterThan(163.43 - 49.2);
+    expect(s.heightMm).toBeLessThan(163.43 - 40);
+    expect(s.widthMm).toBeCloseTo(77.98, 1);
   });
 });
 

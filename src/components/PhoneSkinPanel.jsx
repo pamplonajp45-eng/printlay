@@ -224,6 +224,27 @@ export default function PhoneSkinPanel({ value, onChange }) {
           ? "enter your phone's size"
           : "estimated";
 
+  // Where the camera / button / port positions come from (see PHONE_MODELS)
+  const cutouts = edited
+    ? { label: "your measurements", notice: "Using your fine-tuned measurements. Test-cut one on plain paper before using vinyl." }
+    : model.cutoutSource === "drawing"
+      ? {
+          label: "Apple dimensional drawing",
+          notice:
+            "Camera, button and port positions come from Apple's official dimensional drawing. Corner radius is estimated, so still test-cut one on plain paper first.",
+        }
+      : model.cutoutSource === "photo"
+        ? {
+            label: "measured from official photo",
+            notice:
+              "Camera and buttons were measured from the maker's straight-on photo (about ±0.5 mm). Bottom and top port positions are estimates. Test-cut one on plain paper first.",
+          }
+        : {
+            label: "estimated",
+            notice:
+              "Camera, button and port positions are estimates. Measure your phone, fine-tune below, and test-cut one on plain paper before using vinyl.",
+          };
+
   return (
     <div style={panelStyle}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: INK }}>
@@ -259,6 +280,8 @@ export default function PhoneSkinPanel({ value, onChange }) {
             <RotateCcw size={12} /> Reset
           </button>
         )}
+        <br />
+        Cut-outs: <span style={{ color: "var(--pl-faint)" }}>{cutouts.label}</span>
       </div>
 
       {/* Coverage */}
@@ -350,10 +373,7 @@ export default function PhoneSkinPanel({ value, onChange }) {
         }}
       >
         <Ruler size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
-          Camera, button and port positions are estimates. Measure your phone, fine-tune below, and test-cut one on
-          plain paper before using vinyl.
-        </span>
+        <span>{cutouts.notice}</span>
       </div>
 
       {/* Fine-tune */}

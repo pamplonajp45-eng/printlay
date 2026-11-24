@@ -56,9 +56,13 @@ export const DEFAULT_PHONE_SKIN = {
 //   offset: centre across the thickness, from the back face (default t / 2)
 //
 // bodySource: "official" = the maker's spec sheet, "published" = spec sites
-// (GSMArena etc.) when the maker's page doesn't list it. Corner radius,
-// camera, button and port positions are ESTIMATES: measure the real phone
-// and fine-tune before cutting a batch.
+// (GSMArena etc.) when the maker's page doesn't list it.
+// cutoutSource: where the camera / button / port positions come from:
+//   "drawing"  = Apple's dimensional drawings (exact)
+//   "photo"    = measured off the maker's straight-on render (about ±0.5 mm)
+//   missing    = ESTIMATES: measure the real phone and fine-tune before
+//                cutting a batch
+// Phone corner radii are estimates except where "photo" measured them.
 //
 // The Philippine best sellers (Infinix, TECNO, POCO, vivo, Galaxy A17,
 // iPhone 18 Pro Max) were added from Lazada PH "sold" counts, Nov 2026.
@@ -98,6 +102,30 @@ function iphoneEdges(w, h, { port = 9, cameraControl = false } = {}) {
   return edges;
 }
 
+/**
+ * iPhone side and bottom cut-outs from Apple's dimensional drawings
+ * (developer.apple.com/accessories/dimensional-drawings).
+ * - Buttons are given as [centre from the top, half-length], as printed.
+ * - Bottom positions are printed from the screen side's LEFT; seen from the
+ *   back that end is on the right, so they are mirrored (x -> w - x).
+ * - port: [start, end] of the connector opening; holes: [first, last] centre.
+ */
+function appleEdges(w, d) {
+  const r2 = (n) => +n.toFixed(2);
+  const btn = (label, edge, [centre, half]) => slot(label, edge, centre - half, r2(2 * half), d.pocket);
+  const bottom = (label, a, b, h) => slot(label, "bottom", w - b, r2(b - a), h);
+  const edges = [
+    btn("Side button", "left", d.side),
+    btn(d.action ? "Action button" : "Ring/silent switch", "right", d.action || d.ring),
+    btn("Volume up", "right", d.volUp),
+    btn("Volume down", "right", d.volDown),
+    bottom(d.usbc ? "USB-C" : "Lightning", d.port[0], d.port[1], d.portH || (d.usbc ? 3.4 : 3.2)),
+    ...d.holes.map(([label, [a, b]]) => bottom(label, a - d.holeD / 2, b + d.holeD / 2, d.holeD)),
+  ];
+  if (d.cameraControl) edges.push(btn("Camera Control", "left", d.cameraControl));
+  return edges;
+}
+
 /** Samsung Galaxy: three separate lens rings in a column at the top-left. */
 function samsungLenses(x, y0, d, pitch, n = 3) {
   return Array.from({ length: n }, (_, i) => lens(x, y0 + i * pitch, d));
@@ -120,9 +148,14 @@ export const PHONE_MODELS = [
     brand: "Xiaomi / Redmi",
     name: "Redmi Note 17 5G / Note 17",
     bodySource: "official",
-    body: { w: 79.14, h: 169.7, t: 8.45, r: 10 },
-    cameras: [box(6.5, 6.5, 30, 34, 8.5)],
-    edges: androidEdges(79.14, { volFrom: 42, volLen: 26, powerFrom: 77, powerLen: 13 }),
+    // Measured off Xiaomi's straight-on back render (scaled to the official
+    // 169.70 mm height; its width came out at 79.17 mm vs 79.14): the frosted
+    // camera island, the corner radius and the button positions (where the
+    // keys stick out of the silhouette). Ports aren't visible from the back.
+    cutoutSource: "photo",
+    body: { w: 79.14, h: 169.7, t: 8.45, r: 11.5 },
+    cameras: [box(6.4, 6.2, 40.4, 44.6, 11.7)],
+    edges: androidEdges(79.14, { volFrom: 38.5, volLen: 20.5, powerFrom: 66, powerLen: 11.5 }),
   },
   {
     id: "redmi-note-17-pro-5g",
@@ -314,116 +347,185 @@ export const PHONE_MODELS = [
     cameras: [box(5, 5, 31, 31, 8)],
     edges: iphoneEdges(75.7, 150.9, { port: 8 }),
   },
+  // iPhone 12 onwards: camera plateau, buttons and bottom ports from Apple's
+  // dimensional drawings (outer edge of the raised plateau, from the back's
+  // top-left). Plateau corner radii are read off the drawing (not dimensioned).
   {
     id: "iphone-12",
     brand: "Apple",
-    name: "iPhone 12 / 12 Pro",
+    name: "iPhone 12",
     bodySource: "official",
-    body: { w: 71.5, h: 146.7, t: 7.4, r: 10 },
-    cameras: [box(5, 5, 29, 29, 7.5)],
-    edges: iphoneEdges(71.5, 146.7, { port: 8 }),
+    cutoutSource: "drawing",
+    body: { w: 71.52, h: 146.71, t: 7.39, r: 10 },
+    cameras: [box(3.43, 3.43, 30.7, 32.87, 7)],
+    edges: appleEdges(71.52, {
+      pocket: 3.69, side: [46.31, 8.9], ring: [25.99, 2.85], volUp: [39.31, 5.65], volDown: [53.31, 5.65],
+      port: [31.54, 39.99], holeD: 1.45, holes: [["Mic", [19.18, 25.14]], ["Speaker", [46.38, 56.85]]],
+    }),
+  },
+  {
+    id: "iphone-12-pro",
+    brand: "Apple",
+    name: "iPhone 12 Pro",
+    bodySource: "official",
+    cutoutSource: "drawing",
+    body: { w: 71.52, h: 146.71, t: 7.39, r: 10 },
+    cameras: [box(2.12, 2.12, 33.32, 35.5, 7.5)],
+    edges: appleEdges(71.52, {
+      pocket: 3.69, side: [46.31, 8.9], ring: [25.99, 2.85], volUp: [39.31, 5.65], volDown: [53.31, 5.65],
+      port: [31.38, 40.14], holeD: 1.45, holes: [["Mic", [19.18, 25.14]], ["Speaker", [46.38, 56.85]]],
+    }),
   },
   {
     id: "iphone-13",
     brand: "Apple",
     name: "iPhone 13",
     bodySource: "official",
-    body: { w: 71.5, h: 146.7, t: 7.65, r: 10 },
-    cameras: [box(5, 5, 29.5, 29.5, 7.5)],
-    edges: iphoneEdges(71.5, 146.7, { port: 8 }),
+    cutoutSource: "drawing",
+    body: { w: 71.52, h: 146.7, t: 7.65, r: 10 },
+    cameras: [box(1.15, 1.15, 33.97, 33.97, 7.5)],
+    edges: appleEdges(71.52, {
+      pocket: 3.82, side: [52.53, 9.07], ring: [32.22, 2.9], volUp: [45.53, 5.82], volDown: [59.53, 5.82],
+      port: [31.74, 39.79], holeD: 1.53, holes: [["Mic", [19.14, 25.18]], ["Speaker", [46.34, 56.89]]],
+    }),
   },
   {
     id: "iphone-13-pro",
     brand: "Apple",
     name: "iPhone 13 Pro",
     bodySource: "official",
-    body: { w: 71.5, h: 146.7, t: 7.65, r: 10 },
-    // Triple-lens Pro plateau: much bigger than the iPhone 13's
-    cameras: [box(5, 5, 35.5, 37, 9)],
-    edges: iphoneEdges(71.5, 146.7, { port: 8 }),
-  },
-  {
-    id: "iphone-14",
-    brand: "Apple",
-    name: "iPhone 14",
-    bodySource: "official",
-    body: { w: 71.5, h: 146.7, t: 7.8, r: 10 },
-    cameras: [box(5, 5, 30.5, 30.5, 8)],
-    edges: iphoneEdges(71.5, 146.7, { port: 8 }),
-  },
-  {
-    id: "iphone-15",
-    brand: "Apple",
-    name: "iPhone 15",
-    bodySource: "official",
-    body: { w: 71.6, h: 147.6, t: 7.8, r: 10 },
-    cameras: [box(5, 5, 30.5, 30.5, 8)],
-    edges: iphoneEdges(71.6, 147.6),
-  },
-  {
-    id: "iphone-16",
-    brand: "Apple",
-    name: "iPhone 16",
-    bodySource: "official",
-    body: { w: 71.6, h: 147.6, t: 7.8, r: 10 },
-    cameras: [box(5, 5, 17.5, 33, 8.75)],
-    edges: iphoneEdges(71.6, 147.6, { cameraControl: true }),
+    cutoutSource: "drawing",
+    body: { w: 71.52, h: 146.7, t: 7.65, r: 10 },
+    cameras: [box(1.15, 1.15, 41.24, 42.47, 8)],
+    edges: appleEdges(71.52, {
+      pocket: 3.82, side: [52.53, 9.05], ring: [32.22, 2.9], volUp: [45.53, 5.8], volDown: [59.53, 5.8],
+      port: [31.74, 39.79], holeD: 1.53, holes: [["Mic", [19.14, 25.18]], ["Speaker", [46.34, 56.89]]],
+    }),
   },
   {
     id: "iphone-13-pro-max",
     brand: "Apple",
     name: "iPhone 13 Pro Max",
     bodySource: "official",
-    body: { w: 78.1, h: 160.8, t: 7.65, r: 11 },
-    cameras: [box(5, 5, 38, 39.5, 9)],
-    edges: iphoneEdges(78.1, 160.8, { port: 8 }),
+    cutoutSource: "drawing",
+    body: { w: 78.07, h: 160.84, t: 7.65, r: 11 },
+    cameras: [box(1.15, 1.15, 41.24, 42.47, 8)],
+    edges: appleEdges(78.07, {
+      pocket: 3.82, side: [52.53, 9.05], ring: [32.22, 2.9], volUp: [45.53, 5.8], volDown: [59.53, 5.8],
+      port: [34.7, 43.42], holeD: 1.53, holes: [["Mic", [20.16, 28.46]], ["Speaker", [49.62, 62.42]]],
+    }),
+  },
+  {
+    id: "iphone-14",
+    brand: "Apple",
+    name: "iPhone 14",
+    bodySource: "official",
+    cutoutSource: "drawing",
+    body: { w: 71.52, h: 146.71, t: 7.8, r: 10 },
+    cameras: [box(1.15, 1.15, 34.75, 34.75, 7.5)],
+    edges: appleEdges(71.52, {
+      pocket: 3.9, side: [52.53, 9.17], ring: [31.98, 2.96], volUp: [45.43, 5.92], volDown: [59.63, 5.92],
+      port: [31.54, 39.99], holeD: 1.53, holes: [["Mic", [19.14, 25.18]], ["Speaker", [46.34, 56.89]]],
+    }),
+  },
+  {
+    id: "iphone-15",
+    brand: "Apple",
+    name: "iPhone 15",
+    bodySource: "official",
+    cutoutSource: "drawing",
+    body: { w: 71.63, h: 147.64, t: 7.81, r: 10 },
+    cameras: [box(1.22, 1.22, 35.93, 35.93, 8)],
+    edges: appleEdges(71.63, {
+      pocket: 3.91, side: [53.37, 8.85], ring: [32.83, 2.96], volUp: [46.27, 5.6], volDown: [60.47, 5.6],
+      usbc: true, port: [31.31, 40.31], holeD: 1.35, holes: [["Mic", [19.59, 24.1]], ["Speaker", [47.53, 56.55]]],
+    }),
   },
   {
     id: "iphone-15-pro-max",
     brand: "Apple",
     name: "iPhone 15 Pro Max",
     bodySource: "official",
-    body: { w: 76.7, h: 159.9, t: 8.25, r: 11 },
-    cameras: [box(5, 5, 38, 39.5, 9)],
-    edges: iphoneEdges(76.7, 159.9),
+    cutoutSource: "drawing",
+    body: { w: 76.73, h: 159.86, t: 8.25, r: 11 },
+    cameras: [box(1.04, 1.04, 44.18, 45.5, 9)],
+    edges: appleEdges(76.73, {
+      pocket: 4.13, side: [56.17, 8.85], action: [31.67, 3.02], volUp: [45.22, 5.6], volDown: [59.42, 5.6],
+      usbc: true, port: [33.87, 42.86], holeD: 1.35, holes: [["Mic", [20.4, 27.17]], ["Speaker", [49.56, 60.84]]],
+    }),
+  },
+  {
+    id: "iphone-16",
+    brand: "Apple",
+    name: "iPhone 16",
+    bodySource: "official",
+    cutoutSource: "drawing",
+    body: { w: 71.63, h: 147.64, t: 7.81, r: 10 },
+    // Vertical pill plateau + the flash, which sits on the glass beside it
+    cameras: [box(1.09, 1.25, 25.07, 42.47, 12.53), lens(30.01, 22.48, 6.28)],
+    edges: appleEdges(71.63, {
+      pocket: 3.91, side: [55.33, 8.85], action: [34.08, 3.45], volUp: [48.23, 5.6], volDown: [62.43, 5.6],
+      cameraControl: [96.23, 8.55],
+      usbc: true, port: [31.31, 40.31], holeD: 1.35, holes: [["Mic", [19.75, 24.26]], ["Speaker", [47.37, 56.39]]],
+    }),
   },
   {
     id: "iphone-16-pro",
     brand: "Apple",
     name: "iPhone 16 Pro",
     bodySource: "official",
-    body: { w: 71.5, h: 149.6, t: 8.25, r: 10 },
-    cameras: [box(5, 5, 36, 37.5, 9)],
-    edges: iphoneEdges(71.5, 149.6, { cameraControl: true }),
+    cutoutSource: "drawing",
+    body: { w: 71.45, h: 149.61, t: 8.25, r: 10 },
+    cameras: [box(1.04, 1.04, 44.18, 45.5, 9)],
+    edges: appleEdges(71.45, {
+      pocket: 4.12, side: [55.33, 8.85], action: [34.08, 3.45], volUp: [48.23, 5.6], volDown: [62.43, 5.6],
+      cameraControl: [98.19, 8.55],
+      usbc: true, port: [30.86, 40.58], holeD: 1.35, holes: [["Mic", [19.7, 24.21]], ["Speaker", [47.23, 56.25]]],
+    }),
   },
   {
     id: "iphone-16-pro-max",
     brand: "Apple",
     name: "iPhone 16 Pro Max",
     bodySource: "official",
-    body: { w: 77.6, h: 163, t: 8.25, r: 11 },
-    cameras: [box(5, 5, 38.5, 40, 9)],
-    edges: iphoneEdges(77.6, 163, { cameraControl: true }),
+    cutoutSource: "drawing",
+    body: { w: 77.58, h: 163, t: 8.25, r: 11 },
+    cameras: [box(1.04, 1.04, 44.18, 45.5, 9)],
+    edges: appleEdges(77.58, {
+      pocket: 4.12, side: [55.33, 8.85], action: [34.08, 3.45], volUp: [48.23, 5.6], volDown: [62.43, 5.6],
+      cameraControl: [111.62, 8.55],
+      usbc: true, port: [33.93, 43.65], holeD: 1.35, holes: [["Mic", [20.11, 26.88]], ["Speaker", [50.7, 61.97]]],
+    }),
   },
   {
     id: "iphone-17-pro-max",
     brand: "Apple",
     name: "iPhone 17 Pro Max",
     bodySource: "official",
-    body: { w: 78, h: 163.4, t: 8.75, r: 11 },
-    // Full-width camera plateau
-    cameras: [box(3.5, 3.5, 71, 40, 8)],
-    edges: iphoneEdges(78, 163.4, { cameraControl: true }),
+    cutoutSource: "drawing",
+    body: { w: 77.98, h: 163.43, t: 8.75, r: 11 },
+    // The raised camera plateau spans the full width; its lower edge
+    // (~48.7 mm) is measured off the rear view, so the skin starts below it
+    cameras: [box(0, 0, 77.98, 48.7, 6)],
+    edges: appleEdges(77.98, {
+      pocket: 3.9, side: [55.53, 8.85], action: [34.28, 3.45], volUp: [48.43, 5.6], volDown: [62.63, 5.6],
+      cameraControl: [111.82, 8.55],
+      usbc: true, port: [34.49, 43.49], holeD: 1.53, holes: [["Speaker", [15.41, 26.67]], ["Mic", [51.3, 62.57]]],
+    }),
   },
   {
     id: "iphone-18-pro-max",
     brand: "Apple",
     name: "iPhone 18 Pro Max",
     bodySource: "official",
-    body: { w: 78, h: 163.4, t: 8.75, r: 11 },
-    // Same body as the 17 Pro Max; full-width camera plateau assumed
-    cameras: [box(3.5, 3.5, 71, 40, 8)],
-    edges: iphoneEdges(78, 163.4, { cameraControl: true }),
+    cutoutSource: "drawing",
+    body: { w: 77.98, h: 163.43, t: 8.75, r: 11 },
+    cameras: [box(0, 0, 77.98, 48.6, 6)],
+    edges: appleEdges(77.98, {
+      pocket: 3.9, side: [55.53, 8.85], action: [34.28, 3.45], volUp: [48.43, 5.6], volDown: [62.63, 5.6],
+      cameraControl: [111.82, 8.55],
+      usbc: true, port: [34.49, 43.49], holeD: 1.53, holes: [["Speaker", [15.4, 26.67]], ["Mic", [51.3, 62.58]]],
+    }),
   },
 
   CUSTOM_MODEL,
@@ -542,7 +644,14 @@ export function buildPhoneSkinShape(model, opts = {}) {
   const cuts = [];
   for (const cam of model.cameras || []) {
     if (!(cam.w > 0 && cam.h > 0)) continue;
-    cuts.push(roundedRectPoly(ox + cam.x - c, oy + cam.y - c, cam.w + 2 * c, cam.h + 2 * c, (cam.r || 0) + c));
+    // A window tucked into a corner (iPhone plateaus sit ~1 mm from the edge)
+    // follows that corner's curve, so the border around it stays even and the
+    // cut can't break out through the rounded corner
+    let r = cam.r || 0;
+    const insetX = Math.min(cam.x, W - cam.x - cam.w);
+    const insetY = Math.min(cam.y, H - cam.y - cam.h);
+    if (insetX > 0 && insetY > 0 && Math.max(insetX, insetY) < R) r = Math.max(r, R - Math.min(insetX, insetY));
+    cuts.push(roundedRectPoly(ox + cam.x - c, oy + cam.y - c, cam.w + 2 * c, cam.h + 2 * c, r + c));
   }
   for (const e of model.edges || []) {
     if (!has(e.edge) || !(e.len > 0 && e.h > 0)) continue;
@@ -583,21 +692,42 @@ export function buildPhoneSkinShape(model, opts = {}) {
       main = node;
     }
   }
-  const outer = main ? fromClipper(main.Contour()) : [];
-  const holes = main
+  let outer = main ? fromClipper(main.Contour()) : [];
+  let holes = main
     ? main
         .Childs()
         .map((n) => fromClipper(n.Contour()))
         .filter((p) => p.length >= 3)
     : [];
 
+  // Tighten the frame to the piece that is left: a cut-out can remove a whole
+  // flap (e.g. a full-width camera plateau takes the top strip with it)
+  let minX = 0;
+  let minY = 0;
+  let width = widthMm;
+  let height = heightMm;
+  if (outer.length) {
+    minX = Math.min(...outer.map((p) => p.x));
+    minY = Math.min(...outer.map((p) => p.y));
+    width = Math.max(...outer.map((p) => p.x)) - minX;
+    height = Math.max(...outer.map((p) => p.y)) - minY;
+    if (minX > 0.001 || minY > 0.001) {
+      const shift = (p) => ({ x: +(p.x - minX).toFixed(4), y: +(p.y - minY).toFixed(4) });
+      outer = outer.map(shift);
+      holes = holes.map((h) => h.map(shift));
+    } else {
+      minX = 0;
+      minY = 0;
+    }
+  }
+
   return {
     outer,
     holes,
-    widthMm: +widthMm.toFixed(3),
-    heightMm: +heightMm.toFixed(3),
+    widthMm: +width.toFixed(3),
+    heightMm: +height.toFixed(3),
     wrapMm: D,
-    back: { x: ox, y: oy, w: W, h: H, r: R },
+    back: { x: ox - minX, y: oy - minY, w: W, h: H, r: R },
   };
 }
 
