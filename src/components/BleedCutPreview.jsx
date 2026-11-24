@@ -8,7 +8,7 @@ import {
 } from "../lib/bleedGeometry";
 import { A4 } from "../lib/layout";
 import { planBleedSheets } from "../lib/bleedSheets";
-import { renderSheet } from "../lib/renderSheet";
+import { renderSheet, resolvePageLabel } from "../lib/renderSheet";
 import { downloadPng, downloadPdf, printCanvas, downloadText } from "../lib/exportSheet";
 import { buildCutPaths, buildCutSvg, buildCutDxf } from "../lib/cutFile";
 import { resolveBleedMm } from "../hooks/useBleedSettings";
@@ -21,9 +21,19 @@ const PX_PER_MM = 96 / 25.4; // 100% zoom = real size on a 96 dpi screen
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const PANEL_KEY = "printlay.bleedCutPanel.v1";
 const WARNINGS_KEY = "printlay.bleedCutWarnings.v1";
-const ORIENT_KEY = "printlay.bleedCutOrientation.v1";
-const A4_LANDSCAPE = { widthMm: A4.heightMm, heightMm: A4.widthMm };
-const EXPORT_DPI = 300;
+
+/** Short paper name for the title: A4 / Letter / 4R / 6R, else the size in mm. */
+const PAPERS = [
+  ["A4", 210, 297],
+  ["Letter", 215.9, 279.4],
+  ["4R", 101.6, 152.4],
+  ["6R", 152.4, 203.2],
+];
+function paperName(sheet) {
+  const [a, b] = [sheet.widthMm, sheet.heightMm].sort((x, y) => x - y);
+  const hit = PAPERS.find(([, w, h]) => Math.abs(a - w) < 1 && Math.abs(b - h) < 1);
+  return hit ? hit[0] : `${Math.round(sheet.widthMm)} × ${Math.round(sheet.heightMm)} mm`;
+}
 
 /** Warning badges: OFF unless the user turned them on. */
 function readShowWarnings() {
@@ -31,15 +41,6 @@ function readShowWarnings() {
     return localStorage.getItem(WARNINGS_KEY) === "on";
   } catch {
     return false;
-  }
-}
-
-/** Paper orientation for the bleed sheet: portrait unless the user picked landscape. */
-function readOrientation() {
-  try {
-    return localStorage.getItem(ORIENT_KEY) === "landscape" ? "landscape" : "portrait";
-  } catch {
-    return "portrait";
   }
 }
 
@@ -64,26 +65,24 @@ function SliderRow({ label, value, min, max, step, onChange }) {
 /**
  * Full-workspace bleed-cut preview. All geometry comes from bleedGeometry.js
  * and layout.js; exports go through renderSheet with the SAME slots.
+ *
+ * Follows the rest of the app: `sheet` is the Paper Size (mm, oriented),
+ * settings.gapMm / marginMm are the Guides' Photo Spacing / Page Margin, and
+ * `guides` carries the Guides panel's cut-guide, label and page-label options.
  */
 export default function BleedCutPreview({
   photos, preset, photoPresets, croppedCanvases, dpi, settings, onUpdateSettings, onSetBleed,
-  onCalibrate, onExported, onClose,
+  onCalibrate, onExported, onClose, sheet: paperSheet = A4, onChangeOrientation, guides = {},
 }) {
   const [sheetIndex, setSheetIndex] = useState(0);
   const [zoom, setZoom] = useState(null); // null = fit
   const [fitScale, setFitScale] = useState(2);
   const [panelOpen, setPanelOpen] = useState(readPanelOpen);
-  const [orientation, setOrientationState] = useState(readOrientation);
-  const setOrientation = (o) => {
-    setOrientationState(o);
-    try {
-      localStorage.setItem(ORIENT_KEY, o);
-    } catch {
-      /* storage blocked: keep in memory */
-    }
-  };
   // The sheet everything uses: layout, preview, exports and cut files
-  const sheetSize = orientation === "landscape" ? A4_LANDSCAPE : A4;
+  const sheetSize = paperSheet;
+  const orientation = sheetSize.widthMm > sheetSize.heightMm ? "landscape" : "portrait";
+  const setOrientation = (o) => onChangeOrientation?.(o);
+  const exportDpi = dpi || 300;
   const [hovered, setHovered] = useState(null);
   const [busy, setBusy] = useState(null);
   const [showWarnings, setShowWarningsState] = useState(readShowWarnings);
@@ -189,18 +188,29 @@ export default function BleedCutPreview({
     });
   };
 
-  // Exports: same slots + transform as the preview, rendered at 300 dpi
-  // Artwork only: no printed guide lines (they show on the sticker edge after
-  // cutting). The cut path lives in the Cut SVG / DXF files instead.
-  const renderExport = (background) => {
+  // This sheet's page label (tracking / waybill), with its own text override
+  const pageLabel = resolvePageLabel(guides.pageLabel, guides.pageLabelOverrides, sheet);
+
+  // Exports: same slots + transform as the preview, at the Guides resolution.
+  // Cut guides print only when "Print Cut-Guides" is on in Guides, and never
+  // on the cut-file artwork (the Cut SVG / DXF paths are the cut there).
+  const renderExport = (background, { forCutFile = false } = {}) => {
     const canvas = document.createElement("canvas");
+    const printGuides = !forCutFile && guides.showCutGuides && guides.cutGuideStyle !== "none";
     renderSheet(canvas, {
       sheet: sheetSize,
-      dpi: EXPORT_DPI,
-      slots: items.map((it, i) => ({ ...it, image: canvases[i] })),
+      dpi: exportDpi,
+      slots: items.map((it, i) => ({
+        ...it,
+        image: canvases[i],
+        label: guides.showSequenceLabels ? photos[it.index]?.name || `#${it.index + 1}` : undefined,
+      })),
       background,
-      showCutGuide: false,
+      showCutGuide: printGuides,
+      cutGuide: { style: guides.cutGuideStyle, color: guides.cutGuideColor, opacity: guides.cutGuideOpacity },
       showBleed: false,
+      pageLabel,
+      marginMm,
     });
     return canvas;
   };
@@ -212,18 +222,18 @@ export default function BleedCutPreview({
       const name = `printlay-bleed-sheet-${sheet + 1}`;
       if (kind === "svg") {
         // Artwork without printed guides (the cut paths are the guides) + exact cut lines, one A4 file
-        const art = renderExport("#ffffff").toDataURL("image/png");
+        const art = renderExport("#ffffff", { forCutFile: true }).toDataURL("image/png");
         const svg = buildCutSvg({ paths: buildCutPaths(items), sheet: sheetSize, artworkDataUrl: art, title: name });
         downloadText(svg, `${name}-cut.svg`, "image/svg+xml");
       } else if (kind === "dxf") {
         // Silhouette Studio Basic (no SVG): print PNG (no guides, true A4 at 300 DPI)
         // + DXF cut lines with a blue page frame for one-step alignment
-        await downloadPng(renderExport("#ffffff"), `${name}-print.png`, EXPORT_DPI);
+        await downloadPng(renderExport("#ffffff", { forCutFile: true }), `${name}-print.png`, exportDpi);
         // Real size (mm). Silhouette Studio fits DXF imports to its own size, so the
         // blue page frame is there to resize it back to exactly the page.
         const dxf = buildCutDxf({ paths: buildCutPaths(items), sheet: sheetSize, pageFrame: true });
         downloadText(dxf, `${name}-cut.dxf`, "application/dxf");
-      } else if (kind === "png") await downloadPng(renderExport(null), `${name}.png`, EXPORT_DPI);
+      } else if (kind === "png") await downloadPng(renderExport(null), `${name}.png`, exportDpi);
       else if (kind === "pdf") await downloadPdf(renderExport("#ffffff"), sheetSize, `${name}.pdf`);
       else printCanvas(renderExport("#ffffff"), sheetSize);
     } catch (err) {
@@ -243,7 +253,7 @@ export default function BleedCutPreview({
         <div className="bcp-title">
           <Scissors size={17} />
           <h2>Bleed-cut preview</h2>
-          <span className="bcp-muted">{plan.mixed ? "Mixed sizes" : presets[0]?.name || preset?.name || "Custom"} · A4 {orientation}</span>
+          <span className="bcp-muted">{plan.mixed ? "Mixed sizes" : presets[0]?.name || preset?.name || "Custom"} · {paperName(sheetSize)} {orientation}</span>
         </div>
 
         <div className="bcp-group" role="group" aria-label="Sheet">
@@ -258,11 +268,11 @@ export default function BleedCutPreview({
 
         <div className="bcp-group" role="group" aria-label="Paper orientation">
           <button type="button" className={`bcp-chip ${orientation === "portrait" ? "active" : ""}`}
-            onClick={() => setOrientation("portrait")} aria-pressed={orientation === "portrait"} title="A4 portrait (210 × 297 mm)">
+            onClick={() => setOrientation("portrait")} aria-pressed={orientation === "portrait"} title="Portrait paper (same as Paper Size)">
             Portrait
           </button>
           <button type="button" className={`bcp-chip ${orientation === "landscape" ? "active" : ""}`}
-            onClick={() => setOrientation("landscape")} aria-pressed={orientation === "landscape"} title="A4 landscape (297 × 210 mm)">
+            onClick={() => setOrientation("landscape")} aria-pressed={orientation === "landscape"} title="Landscape paper (same as Paper Size)">
             Landscape
           </button>
         </div>
@@ -324,6 +334,7 @@ export default function BleedCutPreview({
               layers={layers}
               scale={scale}
               hovered={hovered}
+              pageLabel={pageLabel}
             />
           </div>
           {(noPhotos || tooBig) && (
@@ -342,7 +353,11 @@ export default function BleedCutPreview({
                 onChange={(v) => onUpdateSettings({ cutInsetMm: v })} />
               <SliderRow label="Gap" value={gapMm} min={0} max={10} step={0.5} onChange={(v) => onUpdateSettings({ gapMm: v })} />
               <p className="bcp-muted">
-                {plan.mixed && !plan.grid ? "Mixed sizes, one size per row" : `${plan.capacity} per sheet${plan.mixed ? " (mixed name tags)" : ""}`} · {photos.length} photo{photos.length !== 1 ? "s" : ""} · safe zone {getSafeDistanceMm(bleedMm, cutInsetMm)} mm inside cut
+                Gap, page margin ({(+marginMm).toFixed(1)} mm), labels and export resolution ({exportDpi} DPI) follow the
+                Guides panel.
+              </p>
+              <p className="bcp-muted">
+                {plan.mixed && !plan.grid ? "Mixed sizes" : `${plan.capacity} per sheet${plan.mixed ? " (mixed name tags)" : ""}`} · {photos.length} photo{photos.length !== 1 ? "s" : ""} · safe zone {getSafeDistanceMm(bleedMm, cutInsetMm)} mm inside cut
               </p>
               <button
                 type="button"

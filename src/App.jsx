@@ -177,16 +177,37 @@ export default function App({ onNavigateHome }) {
     [activePhotoPreset, bleedMm, bleedSettings.cutInsetMm],
   );
 
+  // The bleed-cut sheet follows the Guides panel: Photo Spacing is the gap
+  // between items, Page Margin the margin, and the paper is the Paper Size
+  const bleedView = useMemo(
+    () => ({ ...bleedSettings, gapMm: +(gutterIn * 25.4).toFixed(2), marginMm: +(marginIn * 25.4).toFixed(2) }),
+    [bleedSettings, gutterIn, marginIn],
+  );
+  const updateBleedView = useCallback(
+    (patch) => {
+      const { gapMm, marginMm, ...rest } = patch;
+      if (gapMm !== undefined) setGutterIn(Math.max(0, gapMm) / 25.4);
+      if (marginMm !== undefined) setMarginIn(Math.max(0, marginMm) / 25.4);
+      if (Object.keys(rest).length) updateBleedSettings(rest);
+    },
+    [updateBleedSettings],
+  );
+  const bleedSheet = useMemo(
+    () => ({ widthMm: activeSheetPreset.wIn * 25.4, heightMm: activeSheetPreset.hIn * 25.4 }),
+    [activeSheetPreset],
+  );
+
   const bleedLayout = useMemo(
     () =>
       computeLayout({
+        sheet: bleedSheet,
         footprint: bleedShape.footprint,
-        gapMm: bleedSettings.gapMm,
-        marginMm: bleedSettings.marginMm,
-        allowRotate: bleedSettings.allowRotate,
+        gapMm: bleedView.gapMm,
+        marginMm: bleedView.marginMm,
+        allowRotate: bleedView.allowRotate,
         count: photos.length,
       }),
-    [bleedShape, bleedSettings.gapMm, bleedSettings.marginMm, bleedSettings.allowRotate, photos.length],
+    [bleedSheet, bleedShape, bleedView.gapMm, bleedView.marginMm, bleedView.allowRotate, photos.length],
   );
 
   // Load session from IndexedDB on initial mount
@@ -1128,8 +1149,8 @@ export default function App({ onNavigateHome }) {
                 {activeTab === "layout" && (
                   <section className="pl-bleed-controls" style={{ marginTop: 12 }}>
                     <BleedControls
-                      settings={bleedSettings}
-                      update={updateBleedSettings}
+                      settings={bleedView}
+                      update={updateBleedView}
                       onCalibrate={handleBleedCalibrate}
                       capacity={bleedLayout.capacity}
                     />
@@ -1167,12 +1188,23 @@ export default function App({ onNavigateHome }) {
                 photoPresets={photoPresets}
                 croppedCanvases={bleedArtwork}
                 dpi={dpi}
-                settings={bleedSettings}
-                onUpdateSettings={updateBleedSettings}
+                settings={bleedView}
+                onUpdateSettings={updateBleedView}
                 onSetBleed={handleSetBleed}
                 onCalibrate={handleBleedCalibrate}
                 onExported={triggerFeedbackPrompt}
                 onClose={() => setIsBleedCutPreview(false)}
+                sheet={bleedSheet}
+                onChangeOrientation={setSheetOrientation}
+                guides={{
+                  showCutGuides,
+                  cutGuideStyle,
+                  cutGuideColor,
+                  cutGuideOpacity,
+                  showSequenceLabels,
+                  pageLabel,
+                  pageLabelOverrides: pageLabels,
+                }}
               />
             ) : (
               <SheetPreview

@@ -73,11 +73,20 @@ function drawSlot(ctx, slot, px, opts) {
   }
   if (opts.showCutGuide) {
     ctx.save();
-    // Thin, solid hairline (~0.1 mm): one clean edge for the cutter / trace,
-    // no dash "teeth" if the blade lands a hair to either side
-    ctx.lineWidth = Math.max(1, 0.1 * px);
-    ctx.setLineDash([]);
-    ctx.strokeStyle = "#ff2d95";
+    const g = opts.cutGuide;
+    if (g) {
+      // The Guides panel's style: same weight and dash as the normal sheets
+      ctx.globalAlpha = Math.max(0, Math.min(1, g.opacity ?? 1));
+      ctx.strokeStyle = g.color || "#b0b0be";
+      ctx.lineWidth = Math.max(1, 0.127 * px);
+      ctx.setLineDash(g.style === "dashed" ? [0.508 * px, 0.381 * px] : []);
+    } else {
+      // Thin, solid hairline (~0.1 mm): one clean edge for the cutter / trace,
+      // no dash "teeth" if the blade lands a hair to either side
+      ctx.lineWidth = Math.max(1, 0.1 * px);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "#ff2d95";
+    }
     ctx.stroke(shapeToPath2D({ outer: shape.cutOuter, holes: shape.cutHoles }, px));
     ctx.restore();
   }
@@ -94,6 +103,52 @@ function drawSlot(ctx, slot, px, opts) {
 }
 
 /**
+ * The page label (tracking / waybill note) for one sheet, or null: the
+ * Guides panel's label with that sheet's own text override, when enabled.
+ */
+export function resolvePageLabel(pageLabel, overrides, sheetIndex) {
+  if (!pageLabel) return null;
+  const own = overrides?.[sheetIndex] ?? overrides?.[String(sheetIndex)];
+  const label = own ? { ...pageLabel, ...own } : pageLabel;
+  return label.enabled && label.text?.trim() ? label : null;
+}
+
+/**
+ * Where the page label goes, in mm, matching the normal sheets: a free X/Y
+ * position (fractions of the page) when set, else a corner / edge preset
+ * inside the page margin. The text sits ON yMm (bottom baseline).
+ */
+export function pageLabelPlacement(label, sheet, marginMm) {
+  const W = sheet.widthMm;
+  const H = sheet.heightMm;
+  const fontMm = ((label.fontSize ?? 9) / 72) * 25.4;
+  const base = { text: label.text, color: label.color || "#3d3856", fontMm };
+  const clamp01 = (n) => Math.max(0, Math.min(1, n));
+  if (typeof label.x === "number" && typeof label.y === "number") {
+    return { ...base, xMm: clamp01(label.x) * W, yMm: clamp01(label.y) * H, align: "left" };
+  }
+  const position = label.position || "bottom-right";
+  const isTop = position.startsWith("top");
+  const align = position.endsWith("center") ? "center" : position.endsWith("right") ? "right" : "left";
+  return {
+    ...base,
+    xMm: align === "center" ? W / 2 : align === "right" ? W - marginMm : marginMm,
+    yMm: isTop ? marginMm + fontMm : H - marginMm,
+    align,
+  };
+}
+
+function drawPageLabel(ctx, placement, px) {
+  ctx.save();
+  ctx.font = `600 ${placement.fontMm * px}px Inter, sans-serif`;
+  ctx.fillStyle = placement.color;
+  ctx.textAlign = placement.align;
+  ctx.textBaseline = "bottom";
+  ctx.fillText(placement.text, placement.xMm * px, placement.yMm * px);
+  ctx.restore();
+}
+
+/**
  * ONE render function for the on-screen preview and every export, so what you
  * see is what prints.
  *
@@ -106,9 +161,16 @@ function drawSlot(ctx, slot, px, opts) {
  *   dpi          preview ~100, export 300
  *   background   null = transparent (PNG), "#fff" for PDF/print
  *   showCutGuide / showBleed   booleans
+ *   cutGuide     { style, color, opacity } from the Guides panel, or null for
+ *                the default cutter hairline
+ *   pageLabel    a resolved page label (resolvePageLabel) or null
+ *   marginMm     page margin, for corner-placed page labels
  *   watermark    { text, opacity } or null (free tier)
  */
-export function renderSheet(canvas, { sheet = A4, dpi = 300, slots, background = null, showCutGuide = false, showBleed = false, watermark = null }) {
+export function renderSheet(canvas, {
+  sheet = A4, dpi = 300, slots, background = null, showCutGuide = false, showBleed = false,
+  cutGuide = null, pageLabel = null, marginMm = 0, watermark = null,
+}) {
   const px = dpi / 25.4;
   canvas.width = Math.round(sheet.widthMm * px);
   canvas.height = Math.round(sheet.heightMm * px);
@@ -118,6 +180,7 @@ export function renderSheet(canvas, { sheet = A4, dpi = 300, slots, background =
     ctx.fillStyle = background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  for (const slot of slots) drawSlot(ctx, slot, px, { showCutGuide, showBleed, watermark });
+  for (const slot of slots) drawSlot(ctx, slot, px, { showCutGuide, showBleed, watermark, cutGuide });
+  if (pageLabel) drawPageLabel(ctx, pageLabelPlacement(pageLabel, sheet, marginMm), px);
   return canvas;
 }

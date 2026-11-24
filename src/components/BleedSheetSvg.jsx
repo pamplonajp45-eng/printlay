@@ -1,5 +1,8 @@
 import { useMemo } from "react";
 import { shapeToSvgPath, getSafeShape, getSafeDistanceMm } from "../lib/bleedGeometry";
+import { pageLabelPlacement } from "../lib/renderSheet";
+
+const ANCHOR = { left: "start", center: "middle", right: "end" };
 
 // Data URLs are expensive; cache one per canvas object.
 const urlCache = new WeakMap();
@@ -46,7 +49,7 @@ const S = { vectorEffect: "non-scaling-stroke", pointerEvents: "none" };
  * 3px halo + 1.25px dash at any zoom.
  */
 export default function BleedSheetSvg({
-  sheet, marginMm, items, canvases, cutInsetMm, layers, scale, hovered,
+  sheet, marginMm, items, canvases, cutInsetMm, layers, scale, hovered, pageLabel = null,
 }) {
   const pathsByShape = useMemo(() => {
     const map = new Map();
@@ -169,6 +172,20 @@ export default function BleedSheetSvg({
           </g>
         );
       })}
+
+      {/* Page label (tracking / waybill), printed with the sheet like on the normal sheets */}
+      {pageLabel && (() => {
+        const p = pageLabelPlacement(pageLabel, sheet, marginMm);
+        return (
+          <text
+            x={p.xMm} y={p.yMm} fill={p.color} fontSize={p.fontMm} fontWeight="600"
+            fontFamily="Inter, sans-serif" textAnchor={ANCHOR[p.align]} dominantBaseline="text-after-edge"
+            style={{ pointerEvents: "none" }}
+          >
+            {p.text}
+          </text>
+        );
+      })()}
     </svg>
   );
 }

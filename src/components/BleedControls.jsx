@@ -33,11 +33,11 @@ export default function BleedControls({ settings, update, onCalibrate, capacity 
       <h3>Bleed &amp; cut</h3>
       {slider("Bleed", "bleedMm", 0, MAX_BLEED_MM, BLEED_STEP_MM)}
       {slider("Cut inset", "cutInsetMm", 0, MAX_CUT_INSET_MM, CUT_INSET_STEP_MM)}
-      {slider("Gap between items", "gapMm", 0, 10, 0.5)}
+      <p className="pl-hint">Spacing and margin come from Photo Spacing and Page Margin above.</p>
       {toggle("Show bleed edge", "showBleed")}
       {toggle("Show cut guide", "showCutGuide")}
       {toggle("Allow 90° rotation", "allowRotate")}
-      {typeof capacity === "number" && <p className="pl-hint">{capacity} per A4 sheet</p>}
+      {typeof capacity === "number" && <p className="pl-hint">{capacity} per sheet</p>}
       <button type="button" className="pl-btn" onClick={onCalibrate} title="Prints one A4 page with this shape at 0, 1, 1.5 and 2 mm bleed. Cut it once on your Silhouette and use the smallest bleed that shows no white edge.">
         Print bleed calibration sheet
       </button>
