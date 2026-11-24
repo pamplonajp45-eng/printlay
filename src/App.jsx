@@ -139,8 +139,8 @@ export default function App({ onNavigateHome }) {
 
   // Per-photo sizes: each photo prints at its own preset (falls back to the batch preset)
   const presetForPhoto = useCallback(
-    (photo) => resolvePhotoPreset(photo, activePhotoPreset, photoOrientation),
-    [activePhotoPreset, photoOrientation],
+    (photo) => resolvePhotoPreset(photo, activePhotoPreset, photoOrientation, phoneSkin),
+    [activePhotoPreset, photoOrientation, phoneSkin],
   );
   const photoPresets = useMemo(() => photos.map(presetForPhoto), [photos, presetForPhoto]);
   const isMixedSizes = hasMixedSizes(photoPresets);

@@ -7,6 +7,22 @@ const A = { w: 60, h: 40, key: "a" };
 const B = { w: 90, h: 50, key: "b" };
 const sheet = { sheetW: 210, sheetH: 297, margin: 5, gap: 2 };
 
+describe("packShelves mixRows", () => {
+  it("puts different sizes side by side in photo order, row height = tallest", () => {
+    const a = { w: 92, h: 183, key: "phone-a" };
+    const b = { w: 91, h: 181, key: "phone-b" };
+    const { pages } = packShelves({ sheetW: 210, sheetH: 297, margin: 6, gap: 2, mixRows: true, items: [a, b, a] });
+    expect(pages.length).toBe(2);
+    expect(pages[0].map((c) => c.index)).toEqual([0, 1]);
+    expect(pages[0][0].y).toBe(pages[0][1].y);
+    expect(pages[0][1].w).toBe(91);
+    // without mixRows each size gets its own row (here: its own page)
+    const { pages: apart } = packShelves({ sheetW: 210, sheetH: 297, margin: 6, gap: 2, items: [a, b, a] });
+    expect(apart.length).toBe(2);
+    expect(apart[0].map((c) => c.index)).toEqual([0, 2]);
+  });
+});
+
 describe("packShelves", () => {
   it("keeps one size per row and groups sizes together", () => {
     const { pages } = packShelves({ ...sheet, items: [A, B, A, B, A] });

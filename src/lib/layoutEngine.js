@@ -511,6 +511,8 @@ function generateMixedSheetCanvases(croppedCanvases, photoPresets, sheetPreset, 
     gap: gutterPx,
     items: sizes,
     rowExtra: labelStripH, // labels go under each row, outside the cut lines
+    // Phone skins of different models are near the same size: share rows
+    mixRows: photoPresets.every((p) => p?.isPhoneSkin),
   };
 
   let pages;

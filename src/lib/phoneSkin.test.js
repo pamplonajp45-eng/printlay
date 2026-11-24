@@ -9,7 +9,7 @@ import {
 } from "./phoneSkin";
 import { getOrientedPreset, isShapedPreset } from "./presets";
 import { polygonBounds, getPresetCutPolygon, getBleedShape } from "./bleedGeometry";
-import { PER_PHOTO_SIZES } from "./photoSizes";
+import { PER_PHOTO_SIZES, phoneSizeId, resolvePhotoPreset, presetKey, hasMixedSizes } from "./photoSizes";
 
 const note17 = findPhoneModel("redmi-note-17-5g");
 
@@ -150,7 +150,34 @@ describe("phone skin preset", () => {
     expect(shape.cutHoles.length).toBe(p.cutShapeMm.holes.length);
   });
 
-  it("is not offered as a per-photo size", () => {
+  it("is not offered as a plain per-photo size (phones are picked by model instead)", () => {
     expect(PER_PHOTO_SIZES.some((p) => p.id === "phoneSkin")).toBe(false);
+  });
+});
+
+describe("per-photo phone models", () => {
+  const batch = getOrientedPreset(buildPhoneSkinPreset(DEFAULT_PHONE_SKIN), "portrait");
+
+  it("a photo set to phone:<model> prints that phone's skin with the panel settings", () => {
+    const settings = { ...DEFAULT_PHONE_SKIN, style: "back" };
+    const p = resolvePhotoPreset({ sizeId: phoneSizeId("iphone-13-pro") }, batch, "portrait", settings);
+    expect(p.isPhoneSkin).toBe(true);
+    expect(p.phoneModelId).toBe("iphone-13-pro");
+    expect(p.wIn * 25.4).toBeCloseTo(71.52, 2); // back only = body width
+    // cached: same object for the same settings
+    expect(resolvePhotoPreset({ sizeId: phoneSizeId("iphone-13-pro") }, batch, "portrait", settings)).toBe(p);
+  });
+
+  it("the batch's own model returns the batch preset; unknown models fall back", () => {
+    expect(resolvePhotoPreset({ sizeId: phoneSizeId("redmi-note-17-5g") }, batch)).toBe(batch);
+    expect(resolvePhotoPreset({ sizeId: phoneSizeId("nope") }, batch)).toBe(batch);
+  });
+
+  it("two phones with the same template size still count as different sizes", () => {
+    const a = resolvePhotoPreset({ sizeId: phoneSizeId("iphone-13") }, batch);
+    const b = resolvePhotoPreset({ sizeId: phoneSizeId("iphone-13-pro") }, batch);
+    expect(a.wIn).toBeCloseTo(b.wIn, 6);
+    expect(presetKey(a)).not.toBe(presetKey(b));
+    expect(hasMixedSizes([a, b])).toBe(true);
   });
 });

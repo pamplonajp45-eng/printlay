@@ -126,11 +126,14 @@ export function pageCounts(total, capacity) {
  * @param {number} [opts.rowExtra=0] - extra space under every row (e.g. labels)
  * @param {boolean} [opts.center=true] - center each row and the block of rows
  * @param {boolean} [opts.allowRotate=false] - turn a size 90° when that fits more per row
+ * @param {boolean} [opts.mixRows=false] - let one row hold different sizes, in photo
+ *   order (row height = tallest item). For near-identical shapes such as phone
+ *   skins of different models, so they share a sheet instead of a row each.
  * @returns {{ pages: Array<Array<{index:number,x:number,y:number,w:number,h:number,row:number,rotated:boolean}>>, oversize: number[] }}
  *   w/h are the PLACED size (swapped when rotated).
  *   `oversize`: indices that are bigger than the usable area (still placed, alone on a row).
  */
-export function packShelves({ sheetW, sheetH, margin = 0, gap = 0, items, rowExtra = 0, center = true, allowRotate = false }) {
+export function packShelves({ sheetW, sheetH, margin = 0, gap = 0, items, rowExtra = 0, center = true, allowRotate = false, mixRows = false }) {
   const usableW = sheetW - 2 * margin;
   const usableH = sheetH - 2 * margin;
   const eps = 1e-9;
@@ -151,18 +154,34 @@ export function packShelves({ sheetW, sheetH, margin = 0, gap = 0, items, rowExt
     placedSize.set(key, turn ? { w: h, h: w, rotated: true } : { w, h, rotated: false });
   }
 
-  // Build rows: one size per row, wrap when the row is full
+  // Build rows: one size per row (or mixed, in photo order), wrap when full
   const rows = [];
-  for (const [key, indices] of groups) {
-    const size = placedSize.get(key);
+  const addTo = (row, index, size) => {
+    row.indices.push(index);
+    row.sizes.push(size);
+    row.width += gap + size.w;
+    row.height = Math.max(row.height, size.h);
+  };
+  const newRow = () => {
+    const row = { indices: [], sizes: [], width: -gap, height: 0 };
+    rows.push(row);
+    return row;
+  };
+  if (mixRows) {
     let row = null;
-    for (const index of indices) {
-      if (!row || row.width + gap + size.w > usableW + eps) {
-        row = { indices: [], width: -gap, height: size.h, size };
-        rows.push(row);
+    items.forEach((it, index) => {
+      const size = placedSize.get(it.key);
+      if (!row || row.width + gap + size.w > usableW + eps) row = newRow();
+      addTo(row, index, size);
+    });
+  } else {
+    for (const [key, indices] of groups) {
+      const size = placedSize.get(key);
+      let row = null;
+      for (const index of indices) {
+        if (!row || row.width + gap + size.w > usableW + eps) row = newRow();
+        addTo(row, index, size);
       }
-      row.indices.push(index);
-      row.width += gap + size.w;
     }
   }
 
@@ -185,8 +204,8 @@ export function packShelves({ sheetW, sheetH, margin = 0, gap = 0, items, rowExt
     let y = margin + (center && Number.isFinite(usableH) ? Math.max(0, (usableH - pg.height) / 2) : 0);
     pg.rows.forEach((row, r) => {
       let x = margin + (center ? Math.max(0, (usableW - row.width) / 2) : 0);
-      const { w, h, rotated } = row.size;
-      for (const index of row.indices) {
+      for (const [k, index] of row.indices.entries()) {
+        const { w, h, rotated } = row.sizes[k];
         if (w > usableW + eps || h > usableH + eps) oversize.push(index);
         placed.push({ index, x: +x.toFixed(4), y: +y.toFixed(4), w, h, row: r, rotated });
         x += w + gap;

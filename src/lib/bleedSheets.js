@@ -44,6 +44,8 @@ export function planBleedSheets({ presets, getShape, settings, sheet = A4 }) {
     gap: gapMm,
     allowRotate,
     items: shapes.map((s, i) => ({ w: s.footprint.widthMm, h: s.footprint.heightMm, key: presetKey(presets[i]) })),
+    // Phone skins of different models are near the same size: share rows
+    mixRows: presets.every((p) => p?.isPhoneSkin),
   };
   const grid = presets.every(isNameTagPreset);
   const packed = grid ? packUniformGrid(packOpts) : packShelves(packOpts);

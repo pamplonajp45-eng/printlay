@@ -1,6 +1,7 @@
 import { X, Crop, Copy, ArrowLeft, ArrowRight, Sparkles, Type } from "lucide-react";
 import { PHOTO_FILTERS } from "../lib/cropEngine";
-import { PER_PHOTO_SIZES } from "../lib/photoSizes";
+import { PER_PHOTO_SIZES, phoneSizeId } from "../lib/photoSizes";
+import { PHONE_MODELS, PHONE_BRANDS } from "../lib/phoneSkin";
 
 export default function PhotoThumbGrid({
   photos,
@@ -313,6 +314,16 @@ export default function PhotoThumbGrid({
                       <option key={p.id} value={p.id}>
                         {p.name}
                       </option>
+                    ))}
+                    {/* Phone skins: each photo can be a different phone */}
+                    {PHONE_BRANDS.map((brand) => (
+                      <optgroup key={brand} label={`Phone skin · ${brand}`}>
+                        {PHONE_MODELS.filter((m) => m.brand === brand).map((m) => (
+                          <option key={m.id} value={phoneSizeId(m.id)}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
